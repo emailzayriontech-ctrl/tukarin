@@ -1,15 +1,23 @@
-// Client-only pdfjs loader with bundled worker.
-import * as pdfjsLib from "pdfjs-dist";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - vite worker import
-import PdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?worker";
-
 let configured = false;
+let pdfjsLibInstance: any = null;
 
 export async function getPdfjs() {
-  if (!configured && typeof window !== "undefined") {
-    pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
+  if (typeof window === "undefined") {
+    // Return a dummy object or handle gracefully on server
+    return null as any;
+  }
+
+  if (!pdfjsLibInstance) {
+    pdfjsLibInstance = await import("pdfjs-dist");
+  }
+
+  if (!configured) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - vite worker import
+    const PdfWorker = (await import("pdfjs-dist/build/pdf.worker.min.mjs?worker")).default;
+    pdfjsLibInstance.GlobalWorkerOptions.workerPort = new PdfWorker();
     configured = true;
   }
-  return pdfjsLib;
+  return pdfjsLibInstance;
 }
+
