@@ -32,6 +32,7 @@ function Page() {
   const [maxDim, setMaxDim] = useState(2000);
   const [useTarget, setUseTarget] = useState(false);
   const [targetMB, setTargetMB] = useState(1);
+  const [outputFormat, setOutputFormat] = useState<string>("original");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +80,7 @@ function Page() {
           quality,
           maxDimension: maxDim,
           targetMB: useTarget ? targetMB : undefined,
+          outputFormat,
         });
         if (r.resultUrl) URL.revokeObjectURL(r.resultUrl);
         updated.push({ ...r, result, resultUrl: URL.createObjectURL(result) });
@@ -128,7 +130,7 @@ function Page() {
         <div className="space-y-6">
           <div className="text-sm text-muted-foreground">{rows.length} gambar siap dikompres</div>
 
-          <div className="grid gap-4 rounded-2xl border border-border bg-card p-5 md:grid-cols-2">
+          <div className="grid gap-4 rounded-2xl border border-border bg-card p-5 md:grid-cols-3">
             <Field label={`Kualitas (${Math.round(quality * 100)}%)`}>
               <input
                 type="range"
@@ -151,6 +153,18 @@ function Page() {
                 className="w-full"
               />
             </Field>
+            <Field label="Format Output">
+              <select
+                value={outputFormat}
+                onChange={(e) => setOutputFormat(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="original">Asli (Original)</option>
+                <option value="image/jpeg">JPG (Ukuran Kecil)</option>
+                <option value="image/png">PNG (Transparan/Lossless)</option>
+                <option value="image/webp">WebP (Modern/Sangat Kecil)</option>
+              </select>
+            </Field>
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-5">
@@ -167,19 +181,31 @@ function Page() {
               <div className="mt-3 flex items-center gap-3">
                 <input
                   type="number"
-                  min={0.05}
-                  step={0.1}
+                  min={0.01}
+                  step={0.05}
                   value={targetMB}
-                  onChange={(e) => setTargetMB(Math.max(0.05, parseFloat(e.target.value) || 0.05))}
+                  onChange={(e) => setTargetMB(Math.max(0.01, parseFloat(e.target.value) || 0.01))}
                   className="w-28 rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
                 <span className="text-sm text-muted-foreground">MB per gambar</span>
               </div>
             )}
             {useTarget && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Kualitas akan diturunkan otomatis sampai ukuran tiap gambar di bawah batas ini.
-              </p>
+              <div className="mt-2.5 space-y-1.5">
+                <p className="text-xs text-muted-foreground">
+                  Kualitas akan diturunkan otomatis sampai ukuran tiap gambar di bawah batas ini.
+                </p>
+                {outputFormat === "image/png" && (
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 p-2.5 rounded-lg border border-amber-200/50 dark:border-amber-900/30">
+                    ⚠️ <strong>Informasi:</strong> Format PNG bersifat <em>lossless</em> (tanpa kompresi kualitas), sehingga ukurannya sulit turun di bawah 1MB tanpa merusak dimensi. Untuk kompresi di bawah 1MB, ubah <strong>Format Output</strong> ke <strong>JPG</strong> atau <strong>WebP</strong>.
+                  </p>
+                )}
+                {outputFormat === "original" && rows.some(r => r.file.type === "image/png") && (
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 p-2.5 rounded-lg border border-amber-200/50 dark:border-amber-900/30">
+                    ⚠️ <strong>Tips:</strong> Gambar PNG terdeteksi. Mengingat PNG bersifat <em>lossless</em>, ubah <strong>Format Output</strong> ke <strong>JPG</strong> atau <strong>WebP</strong> agar file bisa menyusut drastis di bawah 1MB.
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
