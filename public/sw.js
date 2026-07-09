@@ -68,3 +68,11 @@ self.addEventListener("fetch", (e) => {
     })
   );
 });
+
+// Allow the new service worker to take over immediately
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+

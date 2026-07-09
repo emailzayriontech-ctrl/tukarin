@@ -140,8 +140,32 @@ function RootComponent() {
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/sw.js")
-          .then((reg) => console.log("PWA Service Worker registered:", reg.scope))
+          .then((reg) => {
+            console.log("PWA Service Worker registered:", reg.scope);
+
+            // Check for updates to the service worker
+            reg.addEventListener("updatefound", () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener("statechange", () => {
+                  if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                    // New update found, send skip waiting to activate immediately
+                    newWorker.postMessage({ type: "SKIP_WAITING" });
+                  }
+                });
+              }
+            });
+          })
           .catch((err) => console.error("PWA Service Worker registration failed:", err));
+      });
+
+      // Reload the page when the new active service worker takes control
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
       });
     }
   }, []);
