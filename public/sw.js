@@ -1,78 +1,100 @@
-const CACHE_NAME = "tukar-in-cache-v1";
-const ASSETS = [
-  "/",
+/**
+ * SERVICE WORKER — VERSI REKOMENDASI
+ * ------------------------------------------------
+ * Prinsip yang dipakai di sini:
+ * 1. CACHE_VERSION di-generate otomatis oleh build script (lihat instruksi di bawah),
+ *    jadi kamu TIDAK PERNAH lupa ganti versi manual lagi.
+ * 2. skipWaiting() + clients.claim() dipanggil otomatis -> SW baru langsung aktif.
+ * 3. HTML/navigasi selalu network-first -> user selalu dapat versi terbaru selama online.
+ * 4. Asset statis (JS/CSS/gambar) pakai stale-while-revalidate -> tetap cepat & auto update.
+ * 5. Cache lama otomatis dibersihkan saat SW baru aktif.
+ */
+
+// __BUILD_VERSION__ akan diganti otomatis oleh build script tiap deploy.
+// Kalau kamu belum setup build script, ganti manual string di bawah tiap deploy
+// (misal pakai tanggal: "2026-07-11-1")
+const CACHE_VERSION = "__BUILD_VERSION__";
+const CACHE_NAME = `app-cache-${CACHE_VERSION}`;
+
+// Asset yang aman untuk di-precache (jangan masukkan index.html/"/" di sini)
+const PRECACHE_ASSETS = [
   "/manifest.json",
   "/favicon.ico",
   "/icon-192.png",
   "/icon-512.png"
 ];
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
+// ---------- INSTALL ----------
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS))
   );
+  // SW baru langsung siap dipakai, tidak menunggu tab lama ditutup
+  self.skipWaiting();
 });
 
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
-  );
-});
-
-self.addEventListener("fetch", (e) => {
-  // Only intercept GET requests
-  if (e.request.method !== "GET") return;
-  // Ignore dev server extensions and internal bundler tools
-  if (e.request.url.includes("webpack") || e.request.url.includes("vite") || e.request.url.includes("__l5e")) return;
-
-  e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Stale-while-revalidate pattern: fetch updated resource in background
-        fetch(e.request)
-          .then((networkResponse) => {
-            if (networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(e.request, networkResponse));
+// ---------- ACTIVATE ----------
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys.map((key) => {
+            if (key !== CACHE_NAME) {
+              return caches.delete(key); // hapus semua cache versi lama
             }
           })
-          .catch(() => {});
-        return cachedResponse;
-      }
-
-      return fetch(e.request)
-        .then((networkResponse) => {
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== "basic") {
-            return networkResponse;
-          }
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(e.request, responseToCache);
-          });
-          return networkResponse;
-        })
-        .catch(() => {
-          if (e.request.mode === "navigate") {
-            return caches.match("/");
-          }
-        });
-    })
+        )
+      )
+      .then(() => self.clients.claim()) // ambil alih semua tab yang sedang terbuka
   );
 });
 
-// Allow the new service worker to take over immediately
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
+// ---------- FETCH ----------
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
 
+  if (request.method !== "GET") return;
+  if (
+    request.url.includes("chrome-extension") ||
+    request.url.includes("webpack") ||
+    request.url.includes("vite") ||
+    request.url.includes("__l5e")
+  ) {
+    return;
+  }
+
+  // HTML / navigasi -> NETWORK FIRST
+  // Supaya app-shell selalu up to date selama online.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return networkResponse;
+        })
+        .catch(() =>
+          caches.match(request).then((cached) => cached || caches.match("/"))
+        )
+    );
+    return;
+  }
+
+  // Asset lain (biasanya sudah punya hash unik per build) -> STALE WHILE REVALIDATE
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      const networkFetch = fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
+
+      return cachedResponse || networkFetch;
+    })
+  );
+});
