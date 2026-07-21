@@ -5,6 +5,10 @@ import {
   Scissors,
   Minimize2,
   ImageDown,
+  RotateCw,
+  Layers,
+  Stamp,
+  RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,7 +27,11 @@ export type ToolDef = {
     | "/merge-pdf"
     | "/split-pdf"
     | "/compress-pdf"
-    | "/compress-image";
+    | "/compress-image"
+    | "/rotate-pdf"
+    | "/organize-pdf"
+    | "/watermark-pdf"
+    | "/convert-image";
 };
 
 export const CATEGORY_LABEL: Record<ToolCategory, string> = {
@@ -53,6 +61,15 @@ export const TOOLS: ToolDef[] = [
     to: "/pdf-to-image",
   },
   {
+    slug: "convert-image",
+    title: "Konversi Gambar",
+    short: "JPG ↔ PNG ↔ WebP",
+    description: "Ubah format gambar antara JPG, PNG, dan WebP secara instan tanpa menurunkan kualitas.",
+    category: "convert",
+    icon: RefreshCw,
+    to: "/convert-image",
+  },
+  {
     slug: "merge-pdf",
     title: "Gabung PDF",
     short: "Satukan banyak PDF",
@@ -69,6 +86,33 @@ export const TOOLS: ToolDef[] = [
     category: "organize",
     icon: Scissors,
     to: "/split-pdf",
+  },
+  {
+    slug: "rotate-pdf",
+    title: "Putar PDF",
+    short: "Putar orientasi halaman",
+    description: "Putar orientasi halaman PDF (90°, 180°, atau 270°) sesuai kebutuhan kamu.",
+    category: "organize",
+    icon: RotateCw,
+    to: "/rotate-pdf",
+  },
+  {
+    slug: "organize-pdf",
+    title: "Susun & Hapus Halaman",
+    short: "Hapus & urutkan halaman",
+    description: "Hapus halaman yang tidak terpakai atau susun ulang urutan halaman PDF.",
+    category: "organize",
+    icon: Layers,
+    to: "/organize-pdf",
+  },
+  {
+    slug: "watermark-pdf",
+    title: "Watermark PDF",
+    short: "Tambah stempel / watermark",
+    description: "Bubuhi teks watermark kustom (seperti RAHASIA/DRAFT) di atas halaman PDF.",
+    category: "security",
+    icon: Stamp,
+    to: "/watermark-pdf",
   },
   {
     slug: "compress-pdf",
@@ -89,3 +133,4 @@ export const TOOLS: ToolDef[] = [
     to: "/compress-image",
   },
 ];
+

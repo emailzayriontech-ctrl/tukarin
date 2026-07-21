@@ -9,15 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WatermarkPdfRouteImport } from './routes/watermark-pdf'
 import { Route as TentangRouteImport } from './routes/tentang'
 import { Route as SplitPdfRouteImport } from './routes/split-pdf'
+import { Route as RotatePdfRouteImport } from './routes/rotate-pdf'
 import { Route as PdfToImageRouteImport } from './routes/pdf-to-image'
+import { Route as OrganizePdfRouteImport } from './routes/organize-pdf'
 import { Route as MergePdfRouteImport } from './routes/merge-pdf'
 import { Route as ImageToPdfRouteImport } from './routes/image-to-pdf'
+import { Route as ConvertImageRouteImport } from './routes/convert-image'
 import { Route as CompressPdfRouteImport } from './routes/compress-pdf'
 import { Route as CompressImageRouteImport } from './routes/compress-image'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WatermarkPdfRoute = WatermarkPdfRouteImport.update({
+  id: '/watermark-pdf',
+  path: '/watermark-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TentangRoute = TentangRouteImport.update({
   id: '/tentang',
   path: '/tentang',
@@ -28,9 +37,19 @@ const SplitPdfRoute = SplitPdfRouteImport.update({
   path: '/split-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RotatePdfRoute = RotatePdfRouteImport.update({
+  id: '/rotate-pdf',
+  path: '/rotate-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PdfToImageRoute = PdfToImageRouteImport.update({
   id: '/pdf-to-image',
   path: '/pdf-to-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrganizePdfRoute = OrganizePdfRouteImport.update({
+  id: '/organize-pdf',
+  path: '/organize-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MergePdfRoute = MergePdfRouteImport.update({
@@ -41,6 +60,11 @@ const MergePdfRoute = MergePdfRouteImport.update({
 const ImageToPdfRoute = ImageToPdfRouteImport.update({
   id: '/image-to-pdf',
   path: '/image-to-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConvertImageRoute = ConvertImageRouteImport.update({
+  id: '/convert-image',
+  path: '/convert-image',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompressPdfRoute = CompressPdfRouteImport.update({
@@ -63,32 +87,44 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
+  '/convert-image': typeof ConvertImageRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
+  '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/watermark-pdf': typeof WatermarkPdfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
+  '/convert-image': typeof ConvertImageRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
+  '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/watermark-pdf': typeof WatermarkPdfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
+  '/convert-image': typeof ConvertImageRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
+  '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/watermark-pdf': typeof WatermarkPdfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,46 +132,69 @@ export interface FileRouteTypes {
     | '/'
     | '/compress-image'
     | '/compress-pdf'
+    | '/convert-image'
     | '/image-to-pdf'
     | '/merge-pdf'
+    | '/organize-pdf'
     | '/pdf-to-image'
+    | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/watermark-pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/compress-image'
     | '/compress-pdf'
+    | '/convert-image'
     | '/image-to-pdf'
     | '/merge-pdf'
+    | '/organize-pdf'
     | '/pdf-to-image'
+    | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/watermark-pdf'
   id:
     | '__root__'
     | '/'
     | '/compress-image'
     | '/compress-pdf'
+    | '/convert-image'
     | '/image-to-pdf'
     | '/merge-pdf'
+    | '/organize-pdf'
     | '/pdf-to-image'
+    | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/watermark-pdf'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompressImageRoute: typeof CompressImageRoute
   CompressPdfRoute: typeof CompressPdfRoute
+  ConvertImageRoute: typeof ConvertImageRoute
   ImageToPdfRoute: typeof ImageToPdfRoute
   MergePdfRoute: typeof MergePdfRoute
+  OrganizePdfRoute: typeof OrganizePdfRoute
   PdfToImageRoute: typeof PdfToImageRoute
+  RotatePdfRoute: typeof RotatePdfRoute
   SplitPdfRoute: typeof SplitPdfRoute
   TentangRoute: typeof TentangRoute
+  WatermarkPdfRoute: typeof WatermarkPdfRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/watermark-pdf': {
+      id: '/watermark-pdf'
+      path: '/watermark-pdf'
+      fullPath: '/watermark-pdf'
+      preLoaderRoute: typeof WatermarkPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tentang': {
       id: '/tentang'
       path: '/tentang'
@@ -150,11 +209,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplitPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rotate-pdf': {
+      id: '/rotate-pdf'
+      path: '/rotate-pdf'
+      fullPath: '/rotate-pdf'
+      preLoaderRoute: typeof RotatePdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pdf-to-image': {
       id: '/pdf-to-image'
       path: '/pdf-to-image'
       fullPath: '/pdf-to-image'
       preLoaderRoute: typeof PdfToImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/organize-pdf': {
+      id: '/organize-pdf'
+      path: '/organize-pdf'
+      fullPath: '/organize-pdf'
+      preLoaderRoute: typeof OrganizePdfRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/merge-pdf': {
@@ -169,6 +242,13 @@ declare module '@tanstack/react-router' {
       path: '/image-to-pdf'
       fullPath: '/image-to-pdf'
       preLoaderRoute: typeof ImageToPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/convert-image': {
+      id: '/convert-image'
+      path: '/convert-image'
+      fullPath: '/convert-image'
+      preLoaderRoute: typeof ConvertImageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/compress-pdf': {
@@ -199,11 +279,15 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompressImageRoute: CompressImageRoute,
   CompressPdfRoute: CompressPdfRoute,
+  ConvertImageRoute: ConvertImageRoute,
   ImageToPdfRoute: ImageToPdfRoute,
   MergePdfRoute: MergePdfRoute,
+  OrganizePdfRoute: OrganizePdfRoute,
   PdfToImageRoute: PdfToImageRoute,
+  RotatePdfRoute: RotatePdfRoute,
   SplitPdfRoute: SplitPdfRoute,
   TentangRoute: TentangRoute,
+  WatermarkPdfRoute: WatermarkPdfRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
