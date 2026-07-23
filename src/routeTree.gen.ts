@@ -13,6 +13,7 @@ import { Route as WatermarkPdfRouteImport } from './routes/watermark-pdf'
 import { Route as TentangRouteImport } from './routes/tentang'
 import { Route as SplitPdfRouteImport } from './routes/split-pdf'
 import { Route as RotatePdfRouteImport } from './routes/rotate-pdf'
+import { Route as PdfToWordRouteImport } from './routes/pdf-to-word'
 import { Route as PdfToImageRouteImport } from './routes/pdf-to-image'
 import { Route as OrganizePdfRouteImport } from './routes/organize-pdf'
 import { Route as MergePdfRouteImport } from './routes/merge-pdf'
@@ -40,6 +41,11 @@ const SplitPdfRoute = SplitPdfRouteImport.update({
 const RotatePdfRoute = RotatePdfRouteImport.update({
   id: '/rotate-pdf',
   path: '/rotate-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PdfToWordRoute = PdfToWordRouteImport.update({
+  id: '/pdf-to-word',
+  path: '/pdf-to-word',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PdfToImageRoute = PdfToImageRouteImport.update({
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/pdf-to-word': typeof PdfToWordRoute
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/pdf-to-word': typeof PdfToWordRoute
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/pdf-to-word': typeof PdfToWordRoute
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/merge-pdf'
     | '/organize-pdf'
     | '/pdf-to-image'
+    | '/pdf-to-word'
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/merge-pdf'
     | '/organize-pdf'
     | '/pdf-to-image'
+    | '/pdf-to-word'
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/merge-pdf'
     | '/organize-pdf'
     | '/pdf-to-image'
+    | '/pdf-to-word'
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   MergePdfRoute: typeof MergePdfRoute
   OrganizePdfRoute: typeof OrganizePdfRoute
   PdfToImageRoute: typeof PdfToImageRoute
+  PdfToWordRoute: typeof PdfToWordRoute
   RotatePdfRoute: typeof RotatePdfRoute
   SplitPdfRoute: typeof SplitPdfRoute
   TentangRoute: typeof TentangRoute
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/rotate-pdf'
       fullPath: '/rotate-pdf'
       preLoaderRoute: typeof RotatePdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pdf-to-word': {
+      id: '/pdf-to-word'
+      path: '/pdf-to-word'
+      fullPath: '/pdf-to-word'
+      preLoaderRoute: typeof PdfToWordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pdf-to-image': {
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   MergePdfRoute: MergePdfRoute,
   OrganizePdfRoute: OrganizePdfRoute,
   PdfToImageRoute: PdfToImageRoute,
+  PdfToWordRoute: PdfToWordRoute,
   RotatePdfRoute: RotatePdfRoute,
   SplitPdfRoute: SplitPdfRoute,
   TentangRoute: TentangRoute,

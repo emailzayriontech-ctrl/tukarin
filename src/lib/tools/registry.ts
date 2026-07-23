@@ -1,6 +1,7 @@
 import {
   Image as ImageIcon,
   FileImage,
+  FileText,
   Combine,
   Scissors,
   Minimize2,
@@ -31,7 +32,8 @@ export type ToolDef = {
     | "/rotate-pdf"
     | "/organize-pdf"
     | "/watermark-pdf"
-    | "/convert-image";
+    | "/convert-image"
+    | "/pdf-to-word";
 };
 
 export const CATEGORY_LABEL: Record<ToolCategory, string> = {
@@ -59,6 +61,15 @@ export const TOOLS: ToolDef[] = [
     category: "convert",
     icon: FileImage,
     to: "/pdf-to-image",
+  },
+  {
+    slug: "pdf-to-word",
+    title: "PDF ke Word",
+    short: "PDF → DOC (Word)",
+    description: "Ekstrak teks dari PDF dan ubah menjadi dokumen Word yang bisa diedit langsung.",
+    category: "convert",
+    icon: FileText,
+    to: "/pdf-to-word",
   },
   {
     slug: "convert-image",

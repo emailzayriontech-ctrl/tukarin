@@ -40,7 +40,7 @@ function Index() {
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-16 text-center md:pb-16 md:pt-20">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
-            10 tools siap pakai — 100% gratis &amp; privat
+            11 tools siap pakai — 100% gratis &amp; privat
           </span>
           <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-extrabold tracking-tight md:text-6xl">
             Olah file PDF &amp; gambar,{" "}
@@ -49,7 +49,7 @@ function Index() {
             </span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-            Konversi JPG, PNG, WebP ke PDF, gabung, pisah, putar, kompres, dan tambahkan watermark. Tanpa daftar, tanpa upload.
+            Konversi JPG, PNG, WebP ke PDF, PDF ke Word, gabung, pisah, putar, kompres, dan tambahkan watermark. Tanpa daftar, tanpa upload.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm">
@@ -69,7 +69,7 @@ function Index() {
               href="#tools"
               className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-6 text-sm font-semibold transition hover:bg-accent"
             >
-              Lihat 10 Tools
+              Lihat 11 Tools
             </a>
           </div>
 
@@ -83,6 +83,7 @@ function Index() {
               <QuickTag to="/image-to-pdf" label="PNG ke PDF" />
               <QuickTag to="/convert-image" label="JPG ke PNG / WebP" />
               <QuickTag to="/convert-image" label="PNG ke JPG / WebP" />
+              <QuickTag to="/pdf-to-word" label="PDF ke Word (DOC)" />
               <QuickTag to="/pdf-to-image" label="PDF ke Gambar (JPG/PNG)" />
               <QuickTag to="/merge-pdf" label="Gabung Beberapa PDF" />
               <QuickTag to="/split-pdf" label="Pisah / Hapus Halaman PDF" />
