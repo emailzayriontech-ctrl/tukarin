@@ -117,8 +117,7 @@ function Page() {
           accept={{
             "image/*": [".heic", ".heif", ".HEIC", ".HEIF"],
             "video/*": [".heic", ".heif", ".HEIC", ".HEIF"],
-            "application/*": [".heic", ".heif", ".HEIC", ".HEIF"],
-            "*/*": [".heic", ".heif", ".HEIC", ".HEIF"]
+            "application/octet-stream": [".heic", ".heif", ".HEIC", ".HEIF"]
           }}
           label="Letakkan file HEIC / HEIF di sini"
           hint="Mendukung konversi sekaligus banyak file (.heic, .heif)"
