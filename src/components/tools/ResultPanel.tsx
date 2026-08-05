@@ -1,8 +1,12 @@
+import { useEffect } from "react";
 import { CheckCircle2, Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/formatBytes";
+import { trackUsage } from "@/lib/usageTracker";
 
 type Props = {
+  toolSlug?: string;
+  fileCount?: number;
   title?: string;
   description?: string;
   totalSize?: number;
@@ -13,6 +17,8 @@ type Props = {
 };
 
 export function ResultPanel({
+  toolSlug,
+  fileCount = 1,
   title = "Selesai!",
   description = "File kamu siap diunduh.",
   totalSize,
@@ -21,6 +27,12 @@ export function ResultPanel({
   onReset,
   downloadLabel = "Unduh hasil",
 }: Props) {
+  useEffect(() => {
+    if (toolSlug) {
+      trackUsage(toolSlug, fileCount);
+    }
+  }, [toolSlug, fileCount]);
+
   const saved =
     originalSize && totalSize && originalSize > totalSize
       ? Math.round((1 - totalSize / originalSize) * 100)

@@ -1,0 +1,41 @@
+export type UsageStats = {
+  totalRuns: number;
+  totalFiles: number;
+  toolCounts: Record<string, { runs: number; files: number }>;
+};
+
+const STORAGE_KEY = "tukar-in-usage-statistics";
+
+export function getUsageStats(): UsageStats {
+  if (typeof window === "undefined") {
+    return { totalRuns: 0, totalFiles: 0, toolCounts: {} };
+  }
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    return { totalRuns: 0, totalFiles: 0, toolCounts: {} };
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { totalRuns: 0, totalFiles: 0, toolCounts: {} };
+  }
+}
+
+export function trackUsage(toolSlug: string, fileCount: number = 1) {
+  if (typeof window === "undefined") return;
+
+  const stats = getUsageStats();
+  stats.totalRuns += 1;
+  stats.totalFiles += fileCount;
+
+  if (!stats.toolCounts[toolSlug]) {
+    stats.toolCounts[toolSlug] = { runs: 0, files: 0 };
+  }
+  stats.toolCounts[toolSlug].runs += 1;
+  stats.toolCounts[toolSlug].files += fileCount;
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+
+  // Dispatch a custom event to notify components (like index.tsx) of the update
+  window.dispatchEvent(new Event("tukar-in-usage-updated"));
+}

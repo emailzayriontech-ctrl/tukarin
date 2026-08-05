@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldCheck, Zap, Lock, Sparkles } from "lucide-react";
 import { TOOLS, CATEGORY_LABEL, type ToolCategory } from "@/lib/tools/registry";
 import { ToolCard } from "@/components/tools/ToolCard";
+import { getUsageStats, type UsageStats } from "@/lib/usageTracker";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -26,6 +28,17 @@ export const Route = createFileRoute("/")({
 const CATEGORIES: ToolCategory[] = ["convert", "organize", "security", "optimize"];
 
 function Index() {
+  const [stats, setStats] = useState<UsageStats>({ totalRuns: 0, totalFiles: 0, toolCounts: {} });
+
+  useEffect(() => {
+    setStats(getUsageStats());
+    const handleUpdate = () => {
+      setStats(getUsageStats());
+    };
+    window.addEventListener("tukar-in-usage-updated", handleUpdate);
+    return () => window.removeEventListener("tukar-in-usage-updated", handleUpdate);
+  }, []);
+
   return (
     <>
       {/* HERO */}
@@ -96,6 +109,67 @@ function Index() {
           </div>
         </div>
       </section>
+
+      {/* STATISTICS */}
+      {stats.totalRuns > 0 && (
+        <section className="mx-auto max-w-6xl px-4 pb-8 pt-4">
+          <div className="rounded-3xl border border-border bg-card/50 p-6 backdrop-blur shadow-xs">
+            <h3 className="text-sm font-bold tracking-tight mb-4 flex items-center gap-2">
+              📊 Statistik Penggunaan Kamu (Perangkat Ini)
+            </h3>
+            <div className="grid gap-4 grid-cols-3 mb-6">
+              <div className="rounded-2xl border border-border bg-background/50 p-4 text-center">
+                <div className="text-2xl font-extrabold text-primary">{stats.totalRuns}</div>
+                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">Total Penggunaan</div>
+              </div>
+              <div className="rounded-2xl border border-border bg-background/50 p-4 text-center">
+                <div className="text-2xl font-extrabold text-primary">{stats.totalFiles}</div>
+                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">File Diproses</div>
+              </div>
+              <div className="rounded-2xl border border-border bg-background/50 p-4 text-center">
+                <div className="text-2xl font-extrabold text-primary">
+                  {Object.keys(stats.toolCounts).length}
+                </div>
+                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">Jenis Tool</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Rincian Tool Terpopuler
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                {Object.entries(stats.toolCounts)
+                  .sort((a, b) => b[1].runs - a[1].runs)
+                  .slice(0, 6)
+                  .map(([slug, count]) => {
+                    const tool = TOOLS.find((t) => t.slug === slug);
+                    if (!tool) return null;
+                    const pct = Math.round((count.runs / stats.totalRuns) * 100);
+                    return (
+                      <div key={slug} className="rounded-xl border border-border/80 bg-background/50 p-3 text-sm">
+                        <div className="flex items-center justify-between font-medium">
+                          <span>{tool.title}</span>
+                          <span className="text-primary font-semibold">{count.runs}x</span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>{count.files} file</span>
+                          <span>{pct}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* TOOLS */}
       <section id="tools" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-16">
