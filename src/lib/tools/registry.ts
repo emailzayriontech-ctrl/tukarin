@@ -10,6 +10,7 @@ import {
   Layers,
   Stamp,
   RefreshCw,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,7 +34,8 @@ export type ToolDef = {
     | "/organize-pdf"
     | "/watermark-pdf"
     | "/convert-image"
-    | "/pdf-to-word";
+    | "/pdf-to-word"
+    | "/upscale-image";
 };
 
 export const CATEGORY_LABEL: Record<ToolCategory, string> = {
@@ -142,6 +144,15 @@ export const TOOLS: ToolDef[] = [
     category: "optimize",
     icon: ImageDown,
     to: "/compress-image",
+  },
+  {
+    slug: "upscale-image",
+    title: "Perbesar Resolusi Gambar",
+    short: "Upscale HD / 4K",
+    description: "Tingkatkan resolusi gambar Anda hingga 4x lipat menggunakan filter penajaman Lanczos.",
+    category: "optimize",
+    icon: Sparkles,
+    to: "/upscale-image",
   },
 ];
 

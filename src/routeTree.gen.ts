@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WatermarkPdfRouteImport } from './routes/watermark-pdf'
+import { Route as UpscaleImageRouteImport } from './routes/upscale-image'
 import { Route as TentangRouteImport } from './routes/tentang'
 import { Route as SplitPdfRouteImport } from './routes/split-pdf'
 import { Route as RotatePdfRouteImport } from './routes/rotate-pdf'
@@ -26,6 +27,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const WatermarkPdfRoute = WatermarkPdfRouteImport.update({
   id: '/watermark-pdf',
   path: '/watermark-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UpscaleImageRoute = UpscaleImageRouteImport.update({
+  id: '/upscale-image',
+  path: '/upscale-image',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TentangRoute = TentangRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/upscale-image': typeof UpscaleImageRoute
   '/watermark-pdf': typeof WatermarkPdfRoute
 }
 export interface FileRoutesByTo {
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/upscale-image': typeof UpscaleImageRoute
   '/watermark-pdf': typeof WatermarkPdfRoute
 }
 export interface FileRoutesById {
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/upscale-image': typeof UpscaleImageRoute
   '/watermark-pdf': typeof WatermarkPdfRoute
 }
 export interface FileRouteTypes {
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/upscale-image'
     | '/watermark-pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/upscale-image'
     | '/watermark-pdf'
   id:
     | '__root__'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/upscale-image'
     | '/watermark-pdf'
   fileRoutesById: FileRoutesById
 }
@@ -196,6 +208,7 @@ export interface RootRouteChildren {
   RotatePdfRoute: typeof RotatePdfRoute
   SplitPdfRoute: typeof SplitPdfRoute
   TentangRoute: typeof TentangRoute
+  UpscaleImageRoute: typeof UpscaleImageRoute
   WatermarkPdfRoute: typeof WatermarkPdfRoute
 }
 
@@ -206,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/watermark-pdf'
       fullPath: '/watermark-pdf'
       preLoaderRoute: typeof WatermarkPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/upscale-image': {
+      id: '/upscale-image'
+      path: '/upscale-image'
+      fullPath: '/upscale-image'
+      preLoaderRoute: typeof UpscaleImageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tentang': {
@@ -308,6 +328,7 @@ const rootRouteChildren: RootRouteChildren = {
   RotatePdfRoute: RotatePdfRoute,
   SplitPdfRoute: SplitPdfRoute,
   TentangRoute: TentangRoute,
+  UpscaleImageRoute: UpscaleImageRoute,
   WatermarkPdfRoute: WatermarkPdfRoute,
 }
 export const routeTree = rootRouteImport
