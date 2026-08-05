@@ -45,7 +45,7 @@ export function trackUsage(toolSlug: string, fileCount: number = 1) {
   window.dispatchEvent(new Event("tukar-in-usage-updated"));
 }
 
-const GLOBAL_BASE_SEED = 143820;
+const GLOBAL_BASE_SEED = 100;
 
 export async function getGlobalFileCount(): Promise<number> {
   try {
