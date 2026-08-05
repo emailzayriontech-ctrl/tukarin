@@ -68,7 +68,7 @@ function Index() {
             </span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-            Konversi JPG, PNG, WebP ke PDF, PDF ke Word, perbesar resolusi, hapus latar belakang, gabung, pisah, putar, kompres, dan watermark. Tanpa daftar, tanpa upload.
+            Konversi JPG, PNG, WebP ke PDF, PDF ke Word, HEIC ke JPG, perbesar resolusi, hapus latar belakang, gabung, pisah, putar, kompres, dan watermark. Tanpa daftar, tanpa upload.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm">
@@ -88,7 +88,7 @@ function Index() {
               href="#tools"
               className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-6 text-sm font-semibold transition hover:bg-accent"
             >
-              Lihat 13 Tools
+              Lihat 14 Tools
             </a>
           </div>
 
@@ -100,6 +100,7 @@ function Index() {
             <div className="flex flex-wrap justify-center gap-2">
               <QuickTag to="/image-to-pdf" label="JPG ke PDF" />
               <QuickTag to="/image-to-pdf" label="PNG ke PDF" />
+              <QuickTag to="/heic-to-jpg" label="HEIC ke JPG (Apple)" />
               <QuickTag to="/convert-image" label="JPG ke PNG / WebP" />
               <QuickTag to="/convert-image" label="PNG ke JPG / WebP" />
               <QuickTag to="/pdf-to-word" label="PDF ke Word (DOC)" />

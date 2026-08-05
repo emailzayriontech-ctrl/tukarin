@@ -37,7 +37,8 @@ export type ToolDef = {
     | "/convert-image"
     | "/pdf-to-word"
     | "/upscale-image"
-    | "/remove-background";
+    | "/remove-background"
+    | "/heic-to-jpg";
 };
 
 export const CATEGORY_LABEL: Record<ToolCategory, string> = {
@@ -83,6 +84,15 @@ export const TOOLS: ToolDef[] = [
     category: "convert",
     icon: RefreshCw,
     to: "/convert-image",
+  },
+  {
+    slug: "heic-to-jpg",
+    title: "HEIC ke JPG",
+    short: "HEIC → JPG / PNG",
+    description: "Konversi foto format HEIC/HEIF dari perangkat Apple menjadi JPG atau PNG secara instan.",
+    category: "convert",
+    icon: ImageIcon,
+    to: "/heic-to-jpg",
   },
   {
     slug: "merge-pdf",

@@ -20,6 +20,7 @@ import { Route as PdfToImageRouteImport } from './routes/pdf-to-image'
 import { Route as OrganizePdfRouteImport } from './routes/organize-pdf'
 import { Route as MergePdfRouteImport } from './routes/merge-pdf'
 import { Route as ImageToPdfRouteImport } from './routes/image-to-pdf'
+import { Route as HeicToJpgRouteImport } from './routes/heic-to-jpg'
 import { Route as ConvertImageRouteImport } from './routes/convert-image'
 import { Route as CompressPdfRouteImport } from './routes/compress-pdf'
 import { Route as CompressImageRouteImport } from './routes/compress-image'
@@ -80,6 +81,11 @@ const ImageToPdfRoute = ImageToPdfRouteImport.update({
   path: '/image-to-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HeicToJpgRoute = HeicToJpgRouteImport.update({
+  id: '/heic-to-jpg',
+  path: '/heic-to-jpg',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConvertImageRoute = ConvertImageRouteImport.update({
   id: '/convert-image',
   path: '/convert-image',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
   '/convert-image': typeof ConvertImageRoute
+  '/heic-to-jpg': typeof HeicToJpgRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
   '/convert-image': typeof ConvertImageRoute
+  '/heic-to-jpg': typeof HeicToJpgRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
   '/convert-image': typeof ConvertImageRoute
+  '/heic-to-jpg': typeof HeicToJpgRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/compress-image'
     | '/compress-pdf'
     | '/convert-image'
+    | '/heic-to-jpg'
     | '/image-to-pdf'
     | '/merge-pdf'
     | '/organize-pdf'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/compress-image'
     | '/compress-pdf'
     | '/convert-image'
+    | '/heic-to-jpg'
     | '/image-to-pdf'
     | '/merge-pdf'
     | '/organize-pdf'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/compress-image'
     | '/compress-pdf'
     | '/convert-image'
+    | '/heic-to-jpg'
     | '/image-to-pdf'
     | '/merge-pdf'
     | '/organize-pdf'
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   CompressImageRoute: typeof CompressImageRoute
   CompressPdfRoute: typeof CompressPdfRoute
   ConvertImageRoute: typeof ConvertImageRoute
+  HeicToJpgRoute: typeof HeicToJpgRoute
   ImageToPdfRoute: typeof ImageToPdfRoute
   MergePdfRoute: typeof MergePdfRoute
   OrganizePdfRoute: typeof OrganizePdfRoute
@@ -304,6 +317,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImageToPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/heic-to-jpg': {
+      id: '/heic-to-jpg'
+      path: '/heic-to-jpg'
+      fullPath: '/heic-to-jpg'
+      preLoaderRoute: typeof HeicToJpgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/convert-image': {
       id: '/convert-image'
       path: '/convert-image'
@@ -340,6 +360,7 @@ const rootRouteChildren: RootRouteChildren = {
   CompressImageRoute: CompressImageRoute,
   CompressPdfRoute: CompressPdfRoute,
   ConvertImageRoute: ConvertImageRoute,
+  HeicToJpgRoute: HeicToJpgRoute,
   ImageToPdfRoute: ImageToPdfRoute,
   MergePdfRoute: MergePdfRoute,
   OrganizePdfRoute: OrganizePdfRoute,
