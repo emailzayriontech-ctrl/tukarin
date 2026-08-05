@@ -36,9 +36,10 @@ export function trackUsage(toolSlug: string, fileCount: number = 1) {
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
 
-  // Increment the global counter anonymously
+  // Increment the global counter anonymously using allorigins CORS proxy
   for (let idx = 0; idx < fileCount; idx++) {
-    fetch("https://api.counterapi.dev/v1/tukarin/global_files/up").catch(() => {});
+    const targetUrl = encodeURIComponent("https://api.counterapi.dev/v1/tukarin/global_files/up");
+    fetch(`https://api.allorigins.win/get?url=${targetUrl}`).catch(() => {});
   }
 
   // Dispatch a custom event to notify components (like index.tsx) of the update
@@ -49,10 +50,12 @@ const GLOBAL_BASE_SEED = 100;
 
 export async function getGlobalFileCount(): Promise<number> {
   try {
-    const res = await fetch("https://api.counterapi.dev/v1/tukarin/global_files");
+    const targetUrl = encodeURIComponent("https://api.counterapi.dev/v1/tukarin/global_files");
+    const res = await fetch(`https://api.allorigins.win/get?url=${targetUrl}`);
     if (!res.ok) return GLOBAL_BASE_SEED;
     const data = await res.json();
-    return (data.value || 0) + GLOBAL_BASE_SEED;
+    const parsed = JSON.parse(data.contents);
+    return (parsed.value || 0) + GLOBAL_BASE_SEED;
   } catch {
     return GLOBAL_BASE_SEED;
   }
