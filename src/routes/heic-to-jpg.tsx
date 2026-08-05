@@ -38,11 +38,9 @@ function Page() {
   const [error, setError] = useState<string | null>(null);
 
   function add(files: File[]) {
-    // Filter to ensure only HEIC/HEIF files are added
+    // Strictly filter based on file extension, ignoring what the browser MIME type says
     const accepted = files.filter((f) => 
-      /\.(heic|heif)$/i.test(f.name) || 
-      f.type.includes("heic") || 
-      f.type.includes("heif")
+      /\.(heic|heif)$/i.test(f.name)
     );
 
     if (accepted.length === 0) {
@@ -117,9 +115,10 @@ function Page() {
         <FileDropzone
           onFiles={add}
           accept={{
-            "image/heic": [".heic"],
-            "image/heif": [".heif"],
-            "image/*": [".heic", ".heif", ".HEIC", ".HEIF"]
+            "image/*": [".heic", ".heif", ".HEIC", ".HEIF"],
+            "video/*": [".heic", ".heif", ".HEIC", ".HEIF"],
+            "application/*": [".heic", ".heif", ".HEIC", ".HEIF"],
+            "*/*": [".heic", ".heif", ".HEIC", ".HEIF"]
           }}
           label="Letakkan file HEIC / HEIF di sini"
           hint="Mendukung konversi sekaligus banyak file (.heic, .heif)"
