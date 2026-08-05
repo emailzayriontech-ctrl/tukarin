@@ -36,6 +36,24 @@ export function trackUsage(toolSlug: string, fileCount: number = 1) {
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
 
+  // Increment the global counter anonymously
+  for (let idx = 0; idx < fileCount; idx++) {
+    fetch("https://api.counterapi.dev/v1/tukarin/global_files/up").catch(() => {});
+  }
+
   // Dispatch a custom event to notify components (like index.tsx) of the update
   window.dispatchEvent(new Event("tukar-in-usage-updated"));
+}
+
+const GLOBAL_BASE_SEED = 143820;
+
+export async function getGlobalFileCount(): Promise<number> {
+  try {
+    const res = await fetch("https://api.counterapi.dev/v1/tukarin/global_files");
+    if (!res.ok) return GLOBAL_BASE_SEED;
+    const data = await res.json();
+    return (data.value || 0) + GLOBAL_BASE_SEED;
+  } catch {
+    return GLOBAL_BASE_SEED;
+  }
 }

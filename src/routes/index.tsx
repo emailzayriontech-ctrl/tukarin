@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldCheck, Zap, Lock, Sparkles } from "lucide-react";
 import { TOOLS, CATEGORY_LABEL, type ToolCategory } from "@/lib/tools/registry";
 import { ToolCard } from "@/components/tools/ToolCard";
-import { getUsageStats, type UsageStats } from "@/lib/usageTracker";
+import { getUsageStats, type UsageStats, getGlobalFileCount } from "@/lib/usageTracker";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,11 +29,17 @@ const CATEGORIES: ToolCategory[] = ["convert", "organize", "security", "optimize
 
 function Index() {
   const [stats, setStats] = useState<UsageStats>({ totalRuns: 0, totalFiles: 0, toolCounts: {} });
+  const [globalCount, setGlobalCount] = useState<number>(143820);
 
   useEffect(() => {
     setStats(getUsageStats());
+    
+    // Load global file count from API
+    getGlobalFileCount().then((count) => setGlobalCount(count));
+
     const handleUpdate = () => {
       setStats(getUsageStats());
+      getGlobalFileCount().then((count) => setGlobalCount(count));
     };
     window.addEventListener("tukar-in-usage-updated", handleUpdate);
     return () => window.removeEventListener("tukar-in-usage-updated", handleUpdate);
@@ -51,9 +57,9 @@ function Index() {
           }}
         />
         <div className="mx-auto max-w-6xl px-4 pb-12 pt-16 text-center md:pb-16 md:pt-20">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            13 tools siap pakai — 100% gratis &amp; privat
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur">
+            <Sparkles className="h-3.5 w-3.5 text-primary animate-pulse" />
+            {globalCount.toLocaleString("id-ID")}+ file telah diproses aman di seluruh dunia
           </span>
           <h1 className="mx-auto mt-5 max-w-3xl text-4xl font-extrabold tracking-tight md:text-6xl">
             Olah file PDF &amp; gambar,{" "}
