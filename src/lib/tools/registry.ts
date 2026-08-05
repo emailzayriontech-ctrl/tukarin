@@ -11,6 +11,7 @@ import {
   Stamp,
   RefreshCw,
   Sparkles,
+  Eraser,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,7 +36,8 @@ export type ToolDef = {
     | "/watermark-pdf"
     | "/convert-image"
     | "/pdf-to-word"
-    | "/upscale-image";
+    | "/upscale-image"
+    | "/remove-background";
 };
 
 export const CATEGORY_LABEL: Record<ToolCategory, string> = {
@@ -153,6 +155,15 @@ export const TOOLS: ToolDef[] = [
     category: "optimize",
     icon: Sparkles,
     to: "/upscale-image",
+  },
+  {
+    slug: "remove-background",
+    title: "Hapus Background (Magic Wand)",
+    short: "Hapus warna latar belakang",
+    description: "Hapus warna latar belakang solid (seperti putih/hijau) secara instan secara privat di browser.",
+    category: "optimize",
+    icon: Eraser,
+    to: "/remove-background",
   },
 ];
 

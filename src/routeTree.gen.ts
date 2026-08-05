@@ -14,6 +14,7 @@ import { Route as UpscaleImageRouteImport } from './routes/upscale-image'
 import { Route as TentangRouteImport } from './routes/tentang'
 import { Route as SplitPdfRouteImport } from './routes/split-pdf'
 import { Route as RotatePdfRouteImport } from './routes/rotate-pdf'
+import { Route as RemoveBackgroundRouteImport } from './routes/remove-background'
 import { Route as PdfToWordRouteImport } from './routes/pdf-to-word'
 import { Route as PdfToImageRouteImport } from './routes/pdf-to-image'
 import { Route as OrganizePdfRouteImport } from './routes/organize-pdf'
@@ -47,6 +48,11 @@ const SplitPdfRoute = SplitPdfRouteImport.update({
 const RotatePdfRoute = RotatePdfRouteImport.update({
   id: '/rotate-pdf',
   path: '/rotate-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemoveBackgroundRoute = RemoveBackgroundRouteImport.update({
+  id: '/remove-background',
+  path: '/remove-background',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PdfToWordRoute = PdfToWordRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
   '/pdf-to-word': typeof PdfToWordRoute
+  '/remove-background': typeof RemoveBackgroundRoute
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
   '/pdf-to-word': typeof PdfToWordRoute
+  '/remove-background': typeof RemoveBackgroundRoute
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/organize-pdf': typeof OrganizePdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
   '/pdf-to-word': typeof PdfToWordRoute
+  '/remove-background': typeof RemoveBackgroundRoute
   '/rotate-pdf': typeof RotatePdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/organize-pdf'
     | '/pdf-to-image'
     | '/pdf-to-word'
+    | '/remove-background'
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/organize-pdf'
     | '/pdf-to-image'
     | '/pdf-to-word'
+    | '/remove-background'
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/organize-pdf'
     | '/pdf-to-image'
     | '/pdf-to-word'
+    | '/remove-background'
     | '/rotate-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -205,6 +217,7 @@ export interface RootRouteChildren {
   OrganizePdfRoute: typeof OrganizePdfRoute
   PdfToImageRoute: typeof PdfToImageRoute
   PdfToWordRoute: typeof PdfToWordRoute
+  RemoveBackgroundRoute: typeof RemoveBackgroundRoute
   RotatePdfRoute: typeof RotatePdfRoute
   SplitPdfRoute: typeof SplitPdfRoute
   TentangRoute: typeof TentangRoute
@@ -247,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/rotate-pdf'
       fullPath: '/rotate-pdf'
       preLoaderRoute: typeof RotatePdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/remove-background': {
+      id: '/remove-background'
+      path: '/remove-background'
+      fullPath: '/remove-background'
+      preLoaderRoute: typeof RemoveBackgroundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pdf-to-word': {
@@ -325,6 +345,7 @@ const rootRouteChildren: RootRouteChildren = {
   OrganizePdfRoute: OrganizePdfRoute,
   PdfToImageRoute: PdfToImageRoute,
   PdfToWordRoute: PdfToWordRoute,
+  RemoveBackgroundRoute: RemoveBackgroundRoute,
   RotatePdfRoute: RotatePdfRoute,
   SplitPdfRoute: SplitPdfRoute,
   TentangRoute: TentangRoute,
