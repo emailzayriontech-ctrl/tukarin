@@ -38,8 +38,19 @@ function Page() {
   const [error, setError] = useState<string | null>(null);
 
   function add(files: File[]) {
-    // Accept .heic, .heif files
-    const next: Row[] = files.map((file) => ({
+    // Filter to ensure only HEIC/HEIF files are added
+    const accepted = files.filter((f) => 
+      /\.(heic|heif)$/i.test(f.name) || 
+      f.type.includes("heic") || 
+      f.type.includes("heif")
+    );
+
+    if (accepted.length === 0) {
+      setError("Silakan pilih berkas foto dengan format .heic atau .heif.");
+      return;
+    }
+
+    const next: Row[] = accepted.map((file) => ({
       id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 7)}`,
       file,
     }));
@@ -105,9 +116,13 @@ function Page() {
       {!rows.length && (
         <FileDropzone
           onFiles={add}
-          accept={{ "image/heic": [".heic"], "image/heif": [".heif"], ".heic": [], ".heif": [] }}
+          accept={{
+            "image/heic": [".heic"],
+            "image/heif": [".heif"],
+            "image/*": [".heic", ".heif", ".HEIC", ".HEIF"]
+          }}
           label="Letakkan file HEIC / HEIF di sini"
-          hint="Mendukung konversi sekaligus banyak file"
+          hint="Mendukung konversi sekaligus banyak file (.heic, .heif)"
         />
       )}
 
