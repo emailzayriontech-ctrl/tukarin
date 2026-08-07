@@ -49,7 +49,10 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-border/60 py-5 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Tukar.in — dibuat dengan ❤ untuk produktivitas harian.
+        © {new Date().getFullYear()} Tukar.in by{" "}
+        <a href="https://zayriontech.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+          zayriontech.com
+        </a>.
       </div>
     </footer>
   );
