@@ -38,7 +38,7 @@ export function trackUsage(toolSlug: string, fileCount: number = 1) {
 
   // Increment the global counter anonymously using allorigins CORS proxy
   for (let idx = 0; idx < fileCount; idx++) {
-    const targetUrl = encodeURIComponent("https://api.counterapi.dev/v1/tukarin/global_files/up");
+    const targetUrl = encodeURIComponent(`https://api.counterapi.dev/v1/tukarin/global_files/up?t=${Date.now()}_${idx}`);
     fetch(`https://api.allorigins.win/raw?url=${targetUrl}`).catch(() => {});
   }
 
@@ -46,11 +46,11 @@ export function trackUsage(toolSlug: string, fileCount: number = 1) {
   window.dispatchEvent(new Event("tukar-in-usage-updated"));
 }
 
-const GLOBAL_BASE_SEED = 100;
+const GLOBAL_BASE_SEED = 143820;
 
 export async function getGlobalFileCount(): Promise<number> {
   try {
-    const targetUrl = encodeURIComponent("https://api.counterapi.dev/v1/tukarin/global_files");
+    const targetUrl = encodeURIComponent(`https://api.counterapi.dev/v1/tukarin/global_files?t=${Date.now()}`);
     const res = await fetch(`https://api.allorigins.win/raw?url=${targetUrl}`);
     if (!res.ok) return GLOBAL_BASE_SEED;
     const data = await res.json();
