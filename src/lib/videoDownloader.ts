@@ -1,16 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 
-export type CobaltResponse = {
-  status: "error" | "redirect" | "stream" | "success" | "rate-limit" | "picker";
-  text?: string;
-  url?: string;
-  pickerType?: "various" | "images";
-  picker?: {
-    type: "photo" | "video" | "gif";
-    url: string;
-    thumb?: string;
-  }[];
-  audio?: string;
+export type RapidApiResponse = {
+  status: "success" | "error";
+  title?: string;
+  url?: string; // The highest quality video link
+  error?: string;
 };
 
 export const downloadVideo = createServerFn({ method: "POST" })
@@ -20,9 +14,8 @@ export const downloadVideo = createServerFn({ method: "POST" })
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
       const key = `vid_dl_${today}`;
       
-      // Fetch directly without CORS proxy since this runs on the server
+      // 1. Cek Limit Global (30 per hari)
       const getRes = await fetch(`https://api.counterapi.dev/v1/tukarin/${key}`);
-      
       let count = 0;
       if (getRes.ok) {
         const data = await getRes.json();
@@ -33,41 +26,47 @@ export const downloadVideo = createServerFn({ method: "POST" })
         throw new Error(`Limit global harian tercapai. Sudah ${count} video yang diunduh hari ini oleh pengguna Tukar.in. Coba lagi besok!`);
       }
 
-      // If allowed, increment it
-      fetch(`https://api.counterapi.dev/v1/tukarin/${key}/up`).catch(() => {});
+      // Pastikan API Key tersedia
+      const apiKey = process.env.RAPIDAPI_KEY;
+      if (!apiKey) {
+        throw new Error("Sistem belum dikonfigurasi. Harap tambahkan RAPIDAPI_KEY di environment variables (pengaturan hosting/Lovable).");
+      }
 
-      // Call Cobalt API directly from the server
-      const response = await fetch("https://api.cobalt.tools/api/json", {
-        method: "POST",
+      // 2. Gunakan RapidAPI (Social Media Video Downloader)
+      const encodedUrl = encodeURIComponent(url);
+      const apiUrl = `https://social-media-video-downloader.p.rapidapi.com/smvd/get/all?url=${encodedUrl}`;
+
+      const response = await fetch(apiUrl, {
+        method: "GET",
         headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" // Avoid blocks
+          "x-rapidapi-host": "social-media-video-downloader.p.rapidapi.com",
+          "x-rapidapi-key": apiKey,
         },
-        body: JSON.stringify({
-          url: url,
-          vQuality: "1080",
-          filenamePattern: "classic",
-          isNoTTWatermark: true,
-          isAudioOnly: false
-        })
       });
 
       if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error("Layanan sedang sibuk (Rate Limit). Silakan coba lagi nanti.");
-        }
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.text || "Terjadi kesalahan saat memproses link video. Mungkin diblokir oleh platform.");
+        throw new Error("Gagal mengambil data dari API. Pastikan kuota gratis RapidAPI belum habis.");
       }
 
-      const data = (await response.json()) as CobaltResponse;
-      
-      if (data.status === "error") {
-        throw new Error(data.text || "Gagal mendapatkan video.");
+      const data = await response.json();
+
+      // RapidAPI ini mengembalikan array 'links' dengan berbagai kualitas
+      if (!data.links || data.links.length === 0) {
+        throw new Error("Video tidak ditemukan atau format link tidak didukung.");
       }
 
-      return data;
+      // Ambil link video kualitas terbaik (biasanya item pertama atau yang ada tulisan 'hd')
+      const bestLink = data.links.find((l: any) => l.quality?.toLowerCase().includes("hd") || l.quality?.toLowerCase().includes("1080")) || data.links[0];
+
+      // Catat penambahan kuota setelah sukses
+      fetch(`https://api.counterapi.dev/v1/tukarin/${key}/up`).catch(() => {});
+
+      return {
+        status: "success",
+        title: data.title || "Video Download",
+        url: bestLink.link,
+      } as RapidApiResponse;
+
     } catch (e: any) {
       throw new Error(e.message || "Gagal menghubungi server unduhan.");
     }

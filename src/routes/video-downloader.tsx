@@ -3,8 +3,8 @@ import { useState } from "react";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { Button } from "@/components/ui/button";
 import { TOOLS } from "@/lib/tools/registry";
-import { downloadVideo, type CobaltResponse } from "@/lib/videoDownloader";
-import { Loader2, Download, Video, AlertCircle, Image as ImageIcon } from "lucide-react";
+import { downloadVideo, type RapidApiResponse } from "@/lib/videoDownloader";
+import { Loader2, Download, Video, AlertCircle } from "lucide-react";
 import { trackUsage } from "@/lib/usageTracker";
 
 const TOOL = TOOLS.find((t) => t.slug === "video-downloader")!;
@@ -23,7 +23,7 @@ function Page() {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CobaltResponse | null>(null);
+  const [result, setResult] = useState<RapidApiResponse | null>(null);
 
   async function handleDownload(e: React.FormEvent) {
     e.preventDefault();
@@ -111,8 +111,9 @@ function Page() {
               <Button variant="ghost" size="sm" onClick={handleReset}>Unduh Video Lain</Button>
             </div>
 
-            {(result.status === "redirect" || result.status === "stream") && result.url && (
+            {result.url && (
               <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl bg-muted/30">
+                <h4 className="mb-4 text-center text-sm font-medium text-foreground">{result.title}</h4>
                 <a
                   href={result.url}
                   target="_blank"
@@ -124,39 +125,6 @@ function Page() {
                 <p className="mt-4 text-xs text-muted-foreground text-center max-w-sm">
                   Jika video terbuka dan memutar di tab baru, klik kanan (atau tahan lama di HP) lalu pilih "Save video as...".
                 </p>
-              </div>
-            )}
-
-            {result.status === "picker" && result.picker && (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Ditemukan beberapa item (seperti Album/Carousel IG):</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {result.picker.map((item, idx) => (
-                    <div key={idx} className="relative group rounded-lg overflow-hidden border border-border bg-muted">
-                      {item.thumb ? (
-                        <img src={item.thumb} alt={`Item ${idx+1}`} className="w-full h-32 object-cover" />
-                      ) : (
-                        <div className="w-full h-32 flex items-center justify-center bg-muted/50">
-                          {item.type === "video" ? <Video className="h-8 w-8 text-muted-foreground" /> : <ImageIcon className="h-8 w-8 text-muted-foreground" />}
-                        </div>
-                      )}
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold gap-1"
-                      >
-                        <Download className="h-5 w-5" /> Unduh
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {result.status === "success" && (
-              <div className="text-center p-6 text-sm">
-                Berhasil diproses! Jika tidak otomatis terunduh, silakan gunakan link manual.
               </div>
             )}
           </div>
