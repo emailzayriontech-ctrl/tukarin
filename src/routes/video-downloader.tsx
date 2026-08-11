@@ -34,7 +34,7 @@ function Page() {
       setError(null);
       setResult(null);
 
-      const data = await downloadVideo(url.trim());
+      const data = await downloadVideo({ data: url.trim() });
       setResult(data);
       trackUsage(TOOL.slug, 1);
     } catch (err: any) {
