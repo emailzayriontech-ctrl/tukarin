@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Sparkles,
   Eraser,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,7 +39,8 @@ export type ToolDef = {
     | "/pdf-to-word"
     | "/upscale-image"
     | "/remove-background"
-    | "/heic-to-jpg";
+    | "/heic-to-jpg"
+    | "/video-downloader";
 };
 
 export const CATEGORY_LABEL: Record<ToolCategory, string> = {
@@ -174,6 +176,15 @@ export const TOOLS: ToolDef[] = [
     category: "optimize",
     icon: Eraser,
     to: "/remove-background",
+  },
+  {
+    slug: "video-downloader",
+    title: "Pengunduh Video Sosial",
+    short: "Unduh YouTube, TikTok, dll.",
+    description: "Unduh video HD tanpa watermark dari YouTube, TikTok, Instagram, Twitter, Facebook, dan lainnya.",
+    category: "convert",
+    icon: Download,
+    to: "/video-downloader",
   },
 ];
 
