@@ -32,31 +32,42 @@ export const downloadVideo = createServerFn({ method: "POST" })
         throw new Error("Sistem belum dikonfigurasi. Harap tambahkan RAPIDAPI_KEY di environment variables (pengaturan hosting/Lovable).");
       }
 
-      // 2. Gunakan RapidAPI (Social Media Video Downloader)
+      // 2. Gunakan RapidAPI (All Social Media Video Downloader / keepsaveit)
       const encodedUrl = encodeURIComponent(url);
-      const apiUrl = `https://social-media-video-downloader.p.rapidapi.com/smvd/get/all?url=${encodedUrl}`;
+      const apiUrl = `https://all-social-media-video-downloader.p.rapidapi.com/video?url=${encodedUrl}`;
 
       const response = await fetch(apiUrl, {
         method: "GET",
         headers: {
-          "x-rapidapi-host": "social-media-video-downloader.p.rapidapi.com",
+          "x-rapidapi-host": "all-social-media-video-downloader.p.rapidapi.com",
           "x-rapidapi-key": apiKey,
         },
       });
 
       if (!response.ok) {
-        throw new Error("Gagal mengambil data dari API. Pastikan kuota gratis RapidAPI belum habis.");
+        throw new Error("Gagal mengambil data dari API. Pastikan kuota gratis RapidAPI belum habis atau API Key valid.");
       }
 
       const data = await response.json();
 
-      // RapidAPI ini mengembalikan array 'links' dengan berbagai kualitas
-      if (!data.links || data.links.length === 0) {
-        throw new Error("Video tidak ditemukan atau format link tidak didukung.");
+      // Fleksibel menangani berbagai format respons dari berbagai API di RapidAPI
+      let videoUrl = "";
+      if (data.links && data.links.length > 0) {
+        const bestLink = data.links.find((l: any) => l.quality?.toLowerCase().includes("hd") || l.quality?.toLowerCase().includes("1080")) || data.links[0];
+        videoUrl = bestLink.link || bestLink.url;
+      } else if (data.url) {
+        videoUrl = data.url;
+      } else if (data.video_url) {
+        videoUrl = data.video_url;
+      } else if (data.data && data.data.videoUrl) {
+        videoUrl = data.data.videoUrl;
+      } else if (data.result && data.result.url) {
+        videoUrl = data.result.url;
       }
 
-      // Ambil link video kualitas terbaik (biasanya item pertama atau yang ada tulisan 'hd')
-      const bestLink = data.links.find((l: any) => l.quality?.toLowerCase().includes("hd") || l.quality?.toLowerCase().includes("1080")) || data.links[0];
+      if (!videoUrl) {
+        throw new Error("Video tidak ditemukan atau format link dari API tidak didukung.");
+      }
 
       // Catat penambahan kuota setelah sukses
       fetch(`https://api.counterapi.dev/v1/tukarin/${key}/up`).catch(() => {});
@@ -64,7 +75,7 @@ export const downloadVideo = createServerFn({ method: "POST" })
       return {
         status: "success",
         title: data.title || "Video Download",
-        url: bestLink.link,
+        url: videoUrl,
       } as RapidApiResponse;
 
     } catch (e: any) {
