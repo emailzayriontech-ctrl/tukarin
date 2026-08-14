@@ -1,84 +1,125 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestIP } from "@tanstack/react-start/server";
 
 export type RapidApiResponse = {
-  status: "success" | "error";
+  status: "success" | "fallback" | "error";
   title?: string;
-  url?: string; // The highest quality video link
+  url?: string;
+  fallbackUrl?: string;
   error?: string;
 };
+
+// In-memory rate limiting (IP -> { count, date })
+const ipLimits = new Map<string, { count: number; date: string }>();
+
+function extractYouTubeVideoId(url: string): string | null {
+  const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+}
 
 export const downloadVideo = createServerFn({ method: "POST" })
   .validator((url: string) => url)
   .handler(async ({ data: url }) => {
     try {
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-      const key = `vid_dl_${today}`;
       
-      // 1. Cek Limit Global (30 per hari)
-      const getRes = await fetch(`https://api.counterapi.dev/v1/tukarin/${key}`);
-      let count = 0;
-      if (getRes.ok) {
-        const data = await getRes.json();
-        count = data.value || 0;
+      // Fallback URL (SaveFrom.net)
+      const saveFromUrl = `https://sfrom.net/${url.trim()}`;
+
+      // IP Rate Limiting (Limit: 3 per IP per day)
+      let ip = "unknown";
+      try {
+        ip = getRequestIP() || "unknown";
+      } catch (e) {
+        // Ignored, fallback to unknown
       }
 
-      if (count >= 30) {
-        throw new Error(`Limit global harian tercapai. Sudah ${count} video yang diunduh hari ini oleh pengguna Tukar.in. Coba lagi besok!`);
+      if (ip !== "unknown") {
+        const record = ipLimits.get(ip);
+        if (record && record.date === today) {
+          if (record.count >= 3) {
+            // Limit tercapai, arahkan ke fallback
+            return {
+              status: "fallback",
+              fallbackUrl: saveFromUrl
+            } as RapidApiResponse;
+          }
+          record.count += 1;
+        } else {
+          ipLimits.set(ip, { count: 1, date: today });
+        }
       }
 
-      // Pastikan API Key tersedia
+      // Check if it's a YouTube URL
+      const videoId = extractYouTubeVideoId(url);
+      if (!videoId) {
+        // Not YouTube -> use fallback immediately
+        return {
+          status: "fallback",
+          fallbackUrl: saveFromUrl
+        } as RapidApiResponse;
+      }
+
       const apiKey = process.env.RAPIDAPI_KEY;
       if (!apiKey) {
-        throw new Error("Sistem belum dikonfigurasi. Harap tambahkan RAPIDAPI_KEY di environment variables (pengaturan hosting/Lovable).");
+        return {
+          status: "fallback",
+          fallbackUrl: saveFromUrl
+        } as RapidApiResponse;
       }
 
-      // 2. Gunakan RapidAPI (All Social Media Video Downloader / keepsaveit)
-      const encodedUrl = encodeURIComponent(url);
-      const apiUrl = `https://all-social-media-video-downloader.p.rapidapi.com/video?url=${encodedUrl}`;
+      // Memanggil RapidAPI Endpoint sesuai request pengguna
+      const apiUrl = `https://social-media-video-downloader.p.rapidapi.com/youtube/v3/video/details?videoId=${videoId}&urlAccess=proxied&renderableFormats=720p%2Chighres&getTranscript=false`;
 
       const response = await fetch(apiUrl, {
         method: "GET",
         headers: {
-          "x-rapidapi-host": "all-social-media-video-downloader.p.rapidapi.com",
+          "Content-Type": "application/json",
+          "x-rapidapi-host": "social-media-video-downloader.p.rapidapi.com",
           "x-rapidapi-key": apiKey,
         },
       });
 
       if (!response.ok) {
-        throw new Error("Gagal mengambil data dari API. Pastikan kuota gratis RapidAPI belum habis atau API Key valid.");
+        // Jika API error (misal quota habis), gunakan fallback
+        return {
+          status: "fallback",
+          fallbackUrl: saveFromUrl
+        } as RapidApiResponse;
       }
 
       const data = await response.json();
-
-      // Fleksibel menangani berbagai format respons dari berbagai API di RapidAPI
+      
       let videoUrl = "";
-      if (data.links && data.links.length > 0) {
-        const bestLink = data.links.find((l: any) => l.quality?.toLowerCase().includes("hd") || l.quality?.toLowerCase().includes("1080")) || data.links[0];
-        videoUrl = bestLink.link || bestLink.url;
-      } else if (data.url) {
-        videoUrl = data.url;
-      } else if (data.video_url) {
-        videoUrl = data.video_url;
-      } else if (data.data && data.data.videoUrl) {
-        videoUrl = data.data.videoUrl;
-      } else if (data.result && data.result.url) {
-        videoUrl = data.result.url;
+      if (data.contents && data.contents.length > 0) {
+        // Ambil hasil video pertama yang tersedia
+        const videos = data.contents[0].videos;
+        if (videos && videos.length > 0) {
+            // Cari kualitas tertinggi, prioritas 720p
+            const bestVideo = videos.find((v: any) => v.label === "720p" || v.label === "1080p") || videos[0];
+            videoUrl = bestVideo.url;
+        }
       }
 
       if (!videoUrl) {
-        throw new Error("Video tidak ditemukan atau format link dari API tidak didukung.");
+        return {
+          status: "fallback",
+          fallbackUrl: saveFromUrl
+        } as RapidApiResponse;
       }
-
-      // Catat penambahan kuota setelah sukses
-      fetch(`https://api.counterapi.dev/v1/tukarin/${key}/up`).catch(() => {});
 
       return {
         status: "success",
-        title: data.title || "Video Download",
+        title: data.title || "YouTube Video",
         url: videoUrl,
       } as RapidApiResponse;
 
     } catch (e: any) {
-      throw new Error(e.message || "Gagal menghubungi server unduhan.");
+      // Jika terjadi kesalahan fatal, selalu fallback
+      return {
+        status: "fallback",
+        fallbackUrl: `https://sfrom.net/${url.trim()}`
+      } as RapidApiResponse;
     }
   });

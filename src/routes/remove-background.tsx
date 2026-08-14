@@ -183,13 +183,31 @@ function Page() {
             <div className="flex flex-col justify-center space-y-5">
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Warna yang Dihapus (RGB)
+                  Warna yang Dihapus
                 </label>
                 <div className="flex items-center gap-3">
-                  <div
-                    className="h-10 w-10 rounded-lg border border-border"
-                    style={{ backgroundColor: `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})` }}
-                  />
+                  <label className="relative cursor-pointer">
+                    <input
+                      type="color"
+                      value={`#${((1 << 24) + (targetColor.r << 16) + (targetColor.g << 8) + targetColor.b).toString(16).slice(1)}`}
+                      onChange={(e) => {
+                        const hex = e.target.value;
+                        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                        if (result) {
+                          setTargetColor({
+                            r: parseInt(result[1] as string, 16),
+                            g: parseInt(result[2] as string, 16),
+                            b: parseInt(result[3] as string, 16),
+                          });
+                        }
+                      }}
+                      className="h-10 w-10 cursor-pointer opacity-0 absolute inset-0"
+                    />
+                    <div
+                      className="h-10 w-10 rounded-lg border border-border"
+                      style={{ backgroundColor: `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})` }}
+                    />
+                  </label>
                   <span className="text-sm font-mono text-muted-foreground">
                     rgb({targetColor.r}, {targetColor.g}, {targetColor.b})
                   </span>

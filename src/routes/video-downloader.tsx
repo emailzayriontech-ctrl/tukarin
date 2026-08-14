@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { TOOLS } from "@/lib/tools/registry";
 import { Loader2, AlertCircle } from "lucide-react";
 import { trackUsage } from "@/lib/usageTracker";
+import { downloadVideo } from "@/lib/videoDownloader";
 
 const TOOL = TOOLS.find((t) => t.slug === "video-downloader")!;
 
@@ -31,15 +32,19 @@ function Page() {
       setBusy(true);
       setError(null);
       
-      // Simulasikan delay sebentar untuk UX
-      await new Promise((r) => setTimeout(r, 800));
-
       const targetUrl = url.trim();
       
-      // Menggunakan layanan SaveFrom.net shortlink
-      // Pengguna akan diarahkan ke tab baru
-      const saveFromUrl = `https://sfrom.net/${targetUrl}`;
-      window.open(saveFromUrl, "_blank", "noopener,noreferrer");
+      // Memanggil fungsi server (yang akan mengecek IP limit dan memanggil RapidAPI untuk YouTube)
+      const result = await downloadVideo({ data: targetUrl });
+      
+      if (result.status === "success" && result.url) {
+        // Berhasil mendapatkan link langsung dari RapidAPI (via server)
+        window.open(result.url, "_blank", "noopener,noreferrer");
+      } else {
+        // Fallback: Limit habis atau bukan YouTube (atau API error)
+        // Buka lewat SaveFrom.net
+        window.open(result.fallbackUrl || `https://sfrom.net/${targetUrl}`, "_blank", "noopener,noreferrer");
+      }
       
       trackUsage(TOOL.slug, 1);
       setUrl(""); // Reset form
@@ -97,7 +102,7 @@ function Page() {
         </div>
         
         <p className="mt-6 text-center text-xs text-muted-foreground bg-primary/10 text-primary p-3 rounded-lg border border-primary/20">
-          💡 <strong>Info:</strong> Setelah tombol ditekan, video Anda akan dibuka di <b>Tab Baru</b> via <i>SaveFrom.net</i> secara otomatis. Halaman ini tidak akan tertutup.
+          💡 <strong>Info:</strong> Kami mencoba memberikan link download langsung. Jika batas pemakaian server telah habis atau format belum didukung, video akan diunduh melalui layanan gratis <b>SaveFrom.net</b> di tab baru.
         </p>
       </div>
     </ToolPageShell>
