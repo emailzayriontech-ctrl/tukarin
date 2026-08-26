@@ -2,10 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequestIP } from "@tanstack/react-start/server";
 
 export type RapidApiResponse = {
-  status: "success" | "fallback" | "error";
+  status: "success" | "error";
   title?: string;
   url?: string;
-  fallbackUrl?: string;
   error?: string;
 };
 
@@ -23,27 +22,20 @@ export const downloadVideo = createServerFn({ method: "POST" })
   .handler(async ({ data: url }) => {
     try {
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-      
-      // Fallback URL (SaveFrom.net)
-      const saveFromUrl = `https://sfrom.net/${url.trim()}`;
 
       // IP Rate Limiting (Limit: 3 per IP per day)
       let ip = "unknown";
       try {
         ip = getRequestIP() || "unknown";
       } catch (e) {
-        // Ignored, fallback to unknown
+        // Ignored
       }
 
       if (ip !== "unknown") {
         const record = ipLimits.get(ip);
         if (record && record.date === today) {
           if (record.count >= 3) {
-            // Limit tercapai, arahkan ke fallback
-            return {
-              status: "fallback",
-              fallbackUrl: saveFromUrl
-            } as RapidApiResponse;
+            throw new Error("Batas gratis harian (3 video per IP) telah tercapai untuk hari ini. Silakan coba lagi besok.");
           }
           record.count += 1;
         } else {
@@ -54,22 +46,12 @@ export const downloadVideo = createServerFn({ method: "POST" })
       // Check if it's a YouTube URL
       const videoId = extractYouTubeVideoId(url);
       if (!videoId) {
-        // Not YouTube -> use fallback immediately
-        return {
-          status: "fallback",
-          fallbackUrl: saveFromUrl
-        } as RapidApiResponse;
+        throw new Error("Format tautan tidak didukung. Harap masukkan tautan video YouTube yang valid.");
       }
 
       const apiKey = process.env.RAPIDAPI_KEY || "a604f11378msha41c3f66d9a3c0dp1b80a7jsn499ce8b99b43";
-      if (!apiKey) {
-        return {
-          status: "fallback",
-          fallbackUrl: saveFromUrl
-        } as RapidApiResponse;
-      }
 
-      // Memanggil RapidAPI Endpoint sesuai request pengguna
+      // Memanggil RapidAPI Endpoint YouTube v3
       const apiUrl = `https://social-media-video-downloader.p.rapidapi.com/youtube/v3/video/details?videoId=${videoId}&urlAccess=proxied&renderableFormats=720p%2Chighres&getTranscript=false`;
 
       const response = await fetch(apiUrl, {
@@ -82,31 +64,23 @@ export const downloadVideo = createServerFn({ method: "POST" })
       });
 
       if (!response.ok) {
-        // Jika API error (misal quota habis), gunakan fallback
-        return {
-          status: "fallback",
-          fallbackUrl: saveFromUrl
-        } as RapidApiResponse;
+        throw new Error("Gagal mengambil data dari server API. Kuota RapidAPI mungkin telah habis atau tautan tidak dapat diakses.");
       }
 
       const data = await response.json();
       
       let videoUrl = "";
       if (data.contents && data.contents.length > 0) {
-        // Ambil hasil video pertama yang tersedia
         const videos = data.contents[0].videos;
         if (videos && videos.length > 0) {
-            // Cari kualitas tertinggi, prioritas 720p
+            // Cari kualitas 720p atau 1080p, jika tidak ada ambil yang pertama
             const bestVideo = videos.find((v: any) => v.label === "720p" || v.label === "1080p") || videos[0];
             videoUrl = bestVideo.url;
         }
       }
 
       if (!videoUrl) {
-        return {
-          status: "fallback",
-          fallbackUrl: saveFromUrl
-        } as RapidApiResponse;
+        throw new Error("Tautan unduhan video tidak ditemukan dari respons server.");
       }
 
       return {
@@ -116,10 +90,6 @@ export const downloadVideo = createServerFn({ method: "POST" })
       } as RapidApiResponse;
 
     } catch (e: any) {
-      // Jika terjadi kesalahan fatal, selalu fallback
-      return {
-        status: "fallback",
-        fallbackUrl: `https://sfrom.net/${url.trim()}`
-      } as RapidApiResponse;
+      throw new Error(e.message || "Gagal memproses unduhan video.");
     }
   });
