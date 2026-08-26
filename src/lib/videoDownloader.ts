@@ -17,11 +17,21 @@ function extractYouTubeVideoId(url: string): string | null {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
+function extractInstagramShortcode(url: string): string | null {
+  const match = url.match(/(?:instagram\.com\/(?:p|reel|reels)\/)([\w-]+)/i);
+  return match ? match[1] : null;
+}
+
+function isTikTokUrl(url: string): boolean {
+  return /tiktok\.com/i.test(url);
+}
+
 export const downloadVideo = createServerFn({ method: "POST" })
   .validator((url: string) => url)
   .handler(async ({ data: url }) => {
     try {
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const trimmedUrl = url.trim();
 
       // IP Rate Limiting (Limit: 3 per IP per day)
       let ip = "unknown";
@@ -43,16 +53,28 @@ export const downloadVideo = createServerFn({ method: "POST" })
         }
       }
 
-      // Check if it's a YouTube URL
-      const videoId = extractYouTubeVideoId(url);
-      if (!videoId) {
-        throw new Error("Format tautan tidak didukung. Harap masukkan tautan video YouTube yang valid.");
+      // Check supported platform
+      const ytId = extractYouTubeVideoId(trimmedUrl);
+      const igCode = extractInstagramShortcode(trimmedUrl);
+      const isTikTok = isTikTokUrl(trimmedUrl);
+
+      let apiUrl = "";
+      let platformName = "";
+
+      if (ytId) {
+        apiUrl = `https://social-media-video-downloader.p.rapidapi.com/youtube/v3/video/details?videoId=${ytId}&urlAccess=proxied&renderableFormats=720p%2Chighres&getTranscript=false`;
+        platformName = "YouTube Video";
+      } else if (igCode) {
+        apiUrl = `https://social-media-video-downloader.p.rapidapi.com/instagram/v3/media/post/details?shortcode=${igCode}`;
+        platformName = "Instagram Reel";
+      } else if (isTikTok) {
+        apiUrl = `https://social-media-video-downloader.p.rapidapi.com/tiktok/v3/post/details?url=${encodeURIComponent(trimmedUrl)}`;
+        platformName = "TikTok Video";
+      } else {
+        throw new Error("Format tautan tidak didukung. Harap masukkan tautan video YouTube, Instagram (Reels/Post), atau TikTok yang valid.");
       }
 
       const apiKey = process.env.RAPIDAPI_KEY || "a604f11378msha41c3f66d9a3c0dp1b80a7jsn499ce8b99b43";
-
-      // Memanggil RapidAPI Endpoint YouTube v3
-      const apiUrl = `https://social-media-video-downloader.p.rapidapi.com/youtube/v3/video/details?videoId=${videoId}&urlAccess=proxied&renderableFormats=720p%2Chighres&getTranscript=false`;
 
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -73,19 +95,24 @@ export const downloadVideo = createServerFn({ method: "POST" })
       if (data.contents && data.contents.length > 0) {
         const videos = data.contents[0].videos;
         if (videos && videos.length > 0) {
-            // Cari kualitas 720p atau 1080p, jika tidak ada ambil yang pertama
-            const bestVideo = videos.find((v: any) => v.label === "720p" || v.label === "1080p") || videos[0];
-            videoUrl = bestVideo.url;
+          const bestVideo = videos.find((v: any) => v.label === "720p" || v.label === "1080p") || videos[0];
+          videoUrl = bestVideo.url || bestVideo.link;
         }
+      } else if (data.url) {
+        videoUrl = data.url;
+      } else if (data.video_url) {
+        videoUrl = data.video_url;
+      } else if (data.data?.videoUrl) {
+        videoUrl = data.data.videoUrl;
       }
 
       if (!videoUrl) {
-        throw new Error("Tautan unduhan video tidak ditemukan dari respons server.");
+        throw new Error("Tautan unduhan video tidak ditemukan. Pastikan akun tidak diprivat dan video publik.");
       }
 
       return {
         status: "success",
-        title: data.title || "YouTube Video",
+        title: data.title || data.caption || platformName,
         url: videoUrl,
       } as RapidApiResponse;
 

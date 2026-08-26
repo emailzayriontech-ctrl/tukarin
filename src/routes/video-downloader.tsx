@@ -12,8 +12,8 @@ const TOOL = TOOLS.find((t) => t.slug === "video-downloader")!;
 export const Route = createFileRoute("/video-downloader")({
   head: () => ({
     meta: [
-      { title: "Pengunduh Video YouTube — Tukar.in" },
-      { name: "description", content: "Unduh video HD tanpa watermark langsung di Tukar.in. Cepat, gratis, dan tanpa iklan." },
+      { title: "Pengunduh Video (YouTube, Instagram, TikTok) — Tukar.in" },
+      { name: "description", content: "Unduh video HD tanpa watermark dari YouTube, Instagram Reels, dan TikTok. Cepat, gratis, dan tanpa iklan." },
     ],
   }),
   component: Page,
@@ -76,7 +76,7 @@ function Page() {
             <input
               type="url"
               required
-              placeholder="Tempel link video YouTube di sini (contoh: https://youtu.be/...)"
+              placeholder="Tempel link YouTube, Instagram (Reels), atau TikTok di sini..."
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="flex-1 rounded-xl border border-input bg-background px-4 py-4 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
@@ -126,15 +126,23 @@ function Page() {
           </div>
         )}
 
-        <div className="mt-12 grid grid-cols-1 gap-4 text-center text-sm font-medium text-muted-foreground">
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center text-sm font-medium text-muted-foreground">
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
             <span className="text-[#FF0000] font-bold block mb-1">YouTube</span>
-            Unduh Video & Shorts dalam Kualitas HD
+            Video / Shorts
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+            <span className="text-[#E1306C] font-bold block mb-1">Instagram</span>
+            Reels / Post
+          </div>
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+            <span className="text-[#000000] dark:text-white font-bold block mb-1">TikTok</span>
+            Video HD
           </div>
         </div>
         
         <p className="mt-6 text-center text-xs text-muted-foreground bg-primary/10 text-primary p-3 rounded-lg border border-primary/20">
-          💡 <strong>Info:</strong> Fitur unduhan ini memproses tautan YouTube secara gratis (maksimal 3 unduhan per hari per IP).
+          💡 <strong>Info:</strong> Fitur ini memproses unduhan YouTube, Instagram Reels, dan TikTok secara langsung di Tukar.in (maksimal 3 unduhan per hari per IP).
         </p>
       </div>
     </ToolPageShell>
