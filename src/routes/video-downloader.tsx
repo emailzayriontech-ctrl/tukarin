@@ -6,6 +6,7 @@ import { TOOLS } from "@/lib/tools/registry";
 import { Loader2, AlertCircle, Download, CheckCircle2 } from "lucide-react";
 import { trackUsage } from "@/lib/usageTracker";
 import { downloadVideo } from "@/lib/videoDownloader";
+import { downloadBlob } from "@/lib/downloadHelpers";
 
 const TOOL = TOOLS.find((t) => t.slug === "video-downloader")!;
 
@@ -27,6 +28,7 @@ type DownloadResult = {
 function Page() {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [downloadingFile, setDownloadingFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadResult, setDownloadResult] = useState<DownloadResult | null>(null);
 
@@ -50,13 +52,6 @@ function Page() {
           url: result.url,
         });
 
-        // Coba buka langsung jika diizinkan browser
-        try {
-          window.open(result.url, "_blank", "noopener,noreferrer");
-        } catch (e) {
-          // Ignored if blocked
-        }
-
         trackUsage(TOOL.slug, 1);
       } else {
         throw new Error(result.error || "Gagal mendapatkan tautan unduhan.");
@@ -65,6 +60,34 @@ function Page() {
       setError(err.message || "Gagal memproses link video.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleSaveFile(videoUrl: string) {
+    try {
+      setDownloadingFile(true);
+      const res = await fetch(videoUrl);
+      if (!res.ok) throw new Error("Network error");
+      const blob = await res.blob();
+      
+      const cleanTitle = (downloadResult?.title || "video-tukarin")
+        .replace(/[^a-zA-Z0-9\s_-]/g, "")
+        .trim()
+        .slice(0, 40) || "video-tukarin";
+
+      downloadBlob(blob, `${cleanTitle}.mp4`);
+    } catch (e) {
+      // Fallback jika dikunci CORS oleh browser
+      const a = document.createElement("a");
+      a.href = videoUrl;
+      a.download = "video-tukarin.mp4";
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      setDownloadingFile(false);
     }
   }
 
@@ -109,19 +132,28 @@ function Page() {
             )}
 
             <div className="pt-2">
-              <a
-                href={downloadResult.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md hover:shadow-lg text-base"
+              <Button
+                size="lg"
+                onClick={() => handleSaveFile(downloadResult.url)}
+                disabled={downloadingFile}
+                className="px-8 py-3.5 h-auto rounded-xl font-bold text-base shadow-md hover:shadow-lg"
               >
-                <Download className="h-5 w-5" />
-                Unduh Video HD
-              </a>
+                {downloadingFile ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Mengunduh File MP4...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-5 w-5" />
+                    Unduh File Video (.mp4)
+                  </>
+                )}
+              </Button>
             </div>
 
             <p className="text-xs text-muted-foreground pt-1">
-              Klik tombol di atas jika unduhan otomatis tidak berjalan.
+              File video MP4 akan langsung disimpan ke perangkat Anda tanpa tab pemutar.
             </p>
           </div>
         )}
