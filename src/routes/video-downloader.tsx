@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { Button } from "@/components/ui/button";
 import { TOOLS } from "@/lib/tools/registry";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Download, CheckCircle2, ExternalLink } from "lucide-react";
 import { trackUsage } from "@/lib/usageTracker";
 import { downloadVideo } from "@/lib/videoDownloader";
 
@@ -19,10 +19,17 @@ export const Route = createFileRoute("/video-downloader")({
   component: Page,
 });
 
+type DownloadResult = {
+  status: "success" | "fallback";
+  title?: string;
+  url: string;
+};
+
 function Page() {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [downloadResult, setDownloadResult] = useState<DownloadResult | null>(null);
 
   async function handleDownload(e: React.FormEvent) {
     e.preventDefault();
@@ -31,23 +38,33 @@ function Page() {
     try {
       setBusy(true);
       setError(null);
+      setDownloadResult(null);
       
       const targetUrl = url.trim();
       
-      // Memanggil fungsi server (yang akan mengecek IP limit dan memanggil RapidAPI untuk YouTube)
+      // Memanggil fungsi server
       const result = await downloadVideo({ data: targetUrl });
       
-      if (result.status === "success" && result.url) {
-        // Berhasil mendapatkan link langsung dari RapidAPI (via server)
-        window.open(result.url, "_blank", "noopener,noreferrer");
-      } else {
-        // Fallback: Limit habis atau bukan YouTube (atau API error)
-        // Buka lewat SaveFrom.net
-        window.open(result.fallbackUrl || `https://sfrom.net/${targetUrl}`, "_blank", "noopener,noreferrer");
+      const finalUrl = (result.status === "success" && result.url) 
+        ? result.url 
+        : (result.fallbackUrl || `https://sfrom.net/${targetUrl}`);
+        
+      const resStatus = (result.status === "success" && result.url) ? "success" : "fallback";
+
+      setDownloadResult({
+        status: resStatus,
+        title: result.title,
+        url: finalUrl,
+      });
+
+      // Coba buka otomatis di tab baru (jika tidak diblokir browser popup blocker)
+      try {
+        window.open(finalUrl, "_blank", "noopener,noreferrer");
+      } catch (e) {
+        // Jika diblokir popup blocker, pengguna bisa klik tombol di kartu hasil
       }
       
       trackUsage(TOOL.slug, 1);
-      setUrl(""); // Reset form
     } catch (err: any) {
       setError(err.message || "Gagal memproses link video.");
     } finally {
@@ -70,7 +87,7 @@ function Page() {
               disabled={busy}
             />
             <Button type="submit" size="lg" className="h-[58px] px-8 rounded-xl font-bold" disabled={busy}>
-              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Unduh"}
+              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : "Proses"}
             </Button>
           </div>
         </form>
@@ -79,6 +96,48 @@ function Page() {
           <div className="mt-6 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-destructive">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
             <div className="text-sm font-medium">{error}</div>
+          </div>
+        )}
+
+        {downloadResult && (
+          <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center space-y-4 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-center gap-2 text-primary font-semibold text-base sm:text-lg">
+              <CheckCircle2 className="h-6 w-6 text-primary" />
+              <span>{downloadResult.status === "success" ? "Video Siap Diunduh!" : "Link Siap Diproses"}</span>
+            </div>
+            
+            {downloadResult.title && (
+              <p className="text-sm font-medium text-foreground max-w-md mx-auto line-clamp-2">
+                {downloadResult.title}
+              </p>
+            )}
+
+            <div className="pt-2">
+              <a
+                href={downloadResult.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-md hover:shadow-lg text-base"
+              >
+                {downloadResult.status === "success" ? (
+                  <>
+                    <Download className="h-5 w-5" />
+                    Unduh Video HD
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="h-5 w-5" />
+                    Buka Link Unduhan (SaveFrom)
+                  </>
+                )}
+              </a>
+            </div>
+
+            <p className="text-xs text-muted-foreground pt-1">
+              {downloadResult.status === "success"
+                ? "Klik tombol di atas jika unduhan otomatis tidak berjalan."
+                : "Klik tombol di atas untuk mengunduh video via SaveFrom.net."}
+            </p>
           </div>
         )}
 
@@ -102,7 +161,7 @@ function Page() {
         </div>
         
         <p className="mt-6 text-center text-xs text-muted-foreground bg-primary/10 text-primary p-3 rounded-lg border border-primary/20">
-          💡 <strong>Info:</strong> Kami mencoba memberikan link download langsung. Jika batas pemakaian server telah habis atau format belum didukung, video akan diunduh melalui layanan gratis <b>SaveFrom.net</b> di tab baru.
+          💡 <strong>Info:</strong> Kami mencoba memberikan link download langsung. Jika batas pemakaian server telah habis atau format belum didukung, video akan diunduh melalui layanan gratis <b>SaveFrom.net</b>.
         </p>
       </div>
     </ToolPageShell>

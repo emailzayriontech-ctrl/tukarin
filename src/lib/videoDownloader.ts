@@ -61,7 +61,7 @@ export const downloadVideo = createServerFn({ method: "POST" })
         } as RapidApiResponse;
       }
 
-      const apiKey = process.env.RAPIDAPI_KEY;
+      const apiKey = process.env.RAPIDAPI_KEY || "a604f11378msha41c3f66d9a3c0dp1b80a7jsn499ce8b99b43";
       if (!apiKey) {
         return {
           status: "fallback",
