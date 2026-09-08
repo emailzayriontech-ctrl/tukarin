@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wedding Run - Digital Invitation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Canvas for the game -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI Overlay Layer -->
+        <div id="ui-layer">
+            
+            <!-- Landing Screen -->
+            <div id="landing-screen" class="screen active">
+                <div class="content-box glassmorphism">
+                    <h2 class="pre-title">The Wedding Of</h2>
+                    <h1 class="main-title">Zahra & Zayan</h1>
+                    
+                    <div class="guest-info">
+                        <p>Kepada Yth.</p>
+                        <h4 id="guest-name">Bapak/Ibu/Saudara/i</h4>
+                    </div>
+
+                    <p class="subtitle">Bantu kami melewati rintangan menuju hari bahagia!</p>
+                    
+                    <div class="character-selection">
+                        <h3>Pilih Karakter:</h3>
+                        <div class="char-options">
+                            <button class="char-btn active" data-char="groom">
+                                <span class="emoji">🤵</span>
+                                <span class="char-label">Pria</span>
+                            </button>
+                            <button class="char-btn" data-char="bride">
+                                <span class="emoji">👰</span>
+                                <span class="char-label">Wanita</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="btn-play" class="btn primary-btn">🎮 Jelajahi Undangan</button>
+                        <button id="btn-open-invitation" class="btn secondary-btn">💌 Buka Undangan</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- In-Game HUD -->
+            <div id="hud-screen" class="screen">
+                <div class="score-board glassmorphism">
+                    <span class="label">Score</span>
+                    <span id="current-score">0</span>
+                </div>
+                <div id="milestone-toast" class="toast hidden">
+                    <span id="milestone-msg">🎉 Lamaran berhasil!</span>
+                </div>
+                <!-- Control hints for desktop vs mobile -->
+                <div class="controls-hint desktop-hint">Space: Jump | Arrow Down: Duck</div>
+                <div class="controls-hint mobile-hint">Swipe Up: Jump | Swipe Down: Duck</div>
+            </div>
+
+            <!-- Milestone Pause Screen -->
+            <div id="milestone-screen" class="screen">
+                <div class="milestone-card">
+                    <button class="close-btn" id="btn-close-modal">×</button>
+                    <div class="modal-icon-wrapper">
+                        <span id="modal-icon">🤲</span>
+                    </div>
+                    <h2 id="modal-title" class="modal-title">Doa Untuk Kedua Mempelai</h2>
+                    <p id="modal-text" class="modal-desc">Ya Allah, jadikanlah pernikahan ini sebagai awal dari kehidupan yang penuh keberkahan...</p>
+                    
+                    <div class="modal-inner-box">
+                        <p id="modal-detail-label" class="inner-label">Doa terbaik:</p>
+                        <p id="modal-detail-text" class="inner-text">Semoga Raka & Dinda menjadi keluarga yang sakinah, mawaddah, warahmah.</p>
+                    </div>
+
+                    <button id="btn-continue" class="btn modal-btn">Lanjut Perjalanan</button>
+                </div>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="game-over-screen" class="screen">
+                <div class="content-box glassmorphism">
+                    <h2>Perjalananmu terhenti.</h2>
+                    <p class="score-text">Final Score: <span id="final-score">0</span></p>
+                    
+                    <div class="action-buttons vertical">
+                        <button id="btn-restart" class="btn primary-btn">🔄 Main Lagi</button>
+                        <button id="btn-buka-undangan-end" class="btn secondary-btn">💌 Buka Undangan</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>

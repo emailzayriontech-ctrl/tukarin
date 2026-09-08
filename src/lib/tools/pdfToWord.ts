@@ -13,53 +13,126 @@ export async function convertPdfToWord(
 
   for (let i = 1; i <= total; i++) {
     const page = await doc.getPage(i);
+    const viewport = page.getViewport({ scale: 1.2 });
+
+    // 1. Render page to canvas to capture images, graphics, diagrams, and signatures
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+    // 2. Extract and structure text items
     const textContent = await page.getTextContent();
-    const items = textContent.items as any[];
+    const items = (textContent.items as any[]).filter(
+      (item) => typeof item.str === "string" && item.str.trim().length > 0
+    );
 
-    // Sort items: top-to-bottom (Y desc), then left-to-right (X asc)
-    items.sort((a, b) => {
-      const yDiff = b.transform[5] - a.transform[5];
-      if (Math.abs(yDiff) > 8) return yDiff; // different lines
-      return a.transform[4] - b.transform[4]; // same line
-    });
+    // Group items into lines based on Y-coordinate (transform[5])
+    type TextLine = {
+      y: number;
+      fontSize: number;
+      isBold: boolean;
+      isItalic: boolean;
+      items: any[];
+      minX: number;
+      maxX: number;
+    };
 
-    let pageText = "";
-    let lastY = -1;
+    const lines: TextLine[] = [];
 
     for (const item of items) {
-      if (typeof item.str !== "string") continue;
-      const str = item.str;
-      if (!str.trim()) continue;
+      const x = item.transform[4];
+      const y = item.transform[5];
+      const fontSize = Math.round(
+        Math.hypot(item.transform[0], item.transform[1]) || item.height || 11
+      );
+      const fontName = (item.fontName || "").toLowerCase();
+      const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
+      const isItalic = fontName.includes("italic") || fontName.includes("oblique");
 
-      const currentY = item.transform[5];
-      if (lastY !== -1 && Math.abs(currentY - lastY) > 12) {
-        pageText += "</p><p style='margin-top:0pt;margin-bottom:8pt;'>";
-      } else if (lastY !== -1) {
-        pageText += " ";
+      let line = lines.find((l) => Math.abs(l.y - y) <= Math.max(4, fontSize * 0.4));
+      if (!line) {
+        line = {
+          y,
+          fontSize,
+          isBold,
+          isItalic,
+          items: [],
+          minX: x,
+          maxX: x + (item.width || 0),
+        };
+        lines.push(line);
       }
 
-      pageText += str;
-      lastY = currentY;
+      line.items.push(item);
+      line.minX = Math.min(line.minX, x);
+      line.maxX = Math.max(line.maxX, x + (item.width || 0));
     }
 
-    htmlContent += `<p style='margin-top:0pt;margin-bottom:8pt;'>${pageText}</p>`;
-    
-    // Add Word page break
-    if (i < total) {
-      htmlContent += `<br clear="all" style="page-break-before: always; mso-break-type: section-break;" />`;
+    // Sort lines top-to-bottom (Y desc)
+    lines.sort((a, b) => b.y - a.y);
+
+    let pageHtml = "";
+    const pageWidth = viewport.width;
+
+    for (let lIdx = 0; lIdx < lines.length; lIdx++) {
+      const line = lines[lIdx];
+
+      // Sort items in line left-to-right (X asc)
+      line.items.sort((a, b) => a.transform[4] - b.transform[4]);
+      
+      const lineText = line.items.map((it) => it.str).join(" ").replace(/\s+/g, " ");
+
+      // Determine alignment
+      const lineCenterX = (line.minX + line.maxX) / 2;
+      const pageCenterX = pageWidth / 2;
+      let align = "left";
+      if (Math.abs(lineCenterX - pageCenterX) < 60 && lineText.length < 80) {
+        align = "center";
+      } else if (line.minX > pageWidth * 0.6) {
+        align = "right";
+      }
+
+      // Determine styling
+      const styleParts: string[] = [];
+      styleParts.push(`font-size:${Math.min(36, Math.max(9, line.fontSize))}pt`);
+      if (line.isBold) styleParts.push("font-weight:bold");
+      if (line.isItalic) styleParts.push("font-style:italic");
+      if (align !== "left") styleParts.push(`text-align:${align}`);
+      styleParts.push("margin-top:0pt;margin-bottom:6pt;line-height:1.2;");
+
+      pageHtml += `<p style="${styleParts.join(";")}">${escapeHtml(lineText)}</p>`;
     }
+
+    // Combine page visual image + formatted editable text into HTML section
+    htmlContent += `
+      <div style="margin-bottom:24pt; ${i < total ? 'page-break-after:always;' : ''}">
+        <div style="text-align:center; margin-bottom:14pt;">
+          <img src="${pageImageDataUrl}" style="max-width:100%; height:auto; border:1px solid #e2e8f0; border-radius:4px;" alt="Halaman ${i}" />
+        </div>
+        <div style="background-color:#f8fafc; padding:12pt; border-radius:6px; border:1px solid #e2e8f0;">
+          <div style="font-size:9pt; font-weight:bold; color:#64748b; margin-bottom:8pt; text-transform:uppercase; letter-spacing:0.5px;">
+            Teks Dokumen Halaman ${i} (Dapat Diedit):
+          </div>
+          ${pageHtml}
+        </div>
+      </div>
+    `;
 
     onProgress?.(i, total);
   }
 
   await doc.cleanup();
 
-  // Create a Microsoft Word compatible HTML document
   const wordTemplate = `
     <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
     <head>
       <meta charset="utf-8">
-      <title>Converted Document</title>
+      <title>Dokumen Konversi Word</title>
       <!--[if gte mso 9]>
       <xml>
         <w:WordDocument>
@@ -72,12 +145,14 @@ export async function convertPdfToWord(
       <style>
         body {
           font-family: 'Calibri', 'Arial', sans-serif;
-          font-size: 11.0pt;
+          font-size: 11pt;
           line-height: 1.15;
+          color: #1e293b;
+          margin: 0.5in;
         }
         p {
           margin: 0in;
-          margin-bottom: 8.0pt;
+          margin-bottom: 6pt;
         }
       </style>
     </head>
@@ -90,4 +165,13 @@ export async function convertPdfToWord(
   `;
 
   return new Blob([wordTemplate], { type: "application/msword;charset=utf-8" });
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }

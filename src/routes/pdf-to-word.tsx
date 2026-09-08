@@ -85,8 +85,8 @@ function Page() {
               </Button>
             </div>
             
-            <div className="mt-4 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200/50 dark:border-amber-900/30">
-              ℹ️ <strong>Informasi:</strong> Konverter ini mengekstrak dan mengatur teks dari PDF ke dokumen Word yang dapat diedit langsung. Beberapa format tata letak visual/gambar yang rumit mungkin tidak sama persis, namun tulisan/teks di dalamnya akan terjaga penuh secara privat di browser Anda.
+            <div className="mt-4 text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
+              💡 <strong>Pembaruan Konverter:</strong> Konversi kini menjaga ukuran font, cetak tebal/miring, perataan paragraf (kiri/tengah/kanan), serta menyertakan gambaran visual lengkap dari halaman asli agar gambar, tabel, dan logo di PDF tidak hilang saat dibuka di Word.
             </div>
           </div>
 
