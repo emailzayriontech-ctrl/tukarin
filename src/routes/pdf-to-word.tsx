@@ -24,6 +24,7 @@ export const Route = createFileRoute("/pdf-to-word")({
 
 function Page() {
   const [file, setFile] = useState<File | null>(null);
+  const [mode, setMode] = useState<"visual" | "text">("visual");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [result, setResult] = useState<Blob | null>(null);
@@ -43,9 +44,13 @@ function Page() {
     setBusy(true);
     setError(null);
     try {
-      const res = await convertPdfToWord(file, (done, total) => {
-        setProgress({ done, total });
-      });
+      const res = await convertPdfToWord(
+        file,
+        (done, total) => {
+          setProgress({ done, total });
+        },
+        mode
+      );
       setResult(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal mengonversi PDF ke Word.");
@@ -74,7 +79,7 @@ function Page() {
 
       {file && !result && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-border bg-card p-5">
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-semibold">{file.name}</div>
@@ -84,9 +89,25 @@ function Page() {
                 Ganti file
               </Button>
             </div>
+
+            <div className="pt-3 border-t border-border/50 space-y-2">
+              <label className="text-sm font-semibold">Mode Hasil Konversi Word:</label>
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value as "visual" | "text")}
+                className="w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary font-medium"
+              >
+                <option value="visual">
+                  ✨ Presisi Visual 1:1 (Menjaga Banner Hijau, Warna, Tabel & Grafik Sesuai PDF Asli)
+                </option>
+                <option value="text">
+                  📝 Ekstraksi Teks (Hanya Teks Polos tanpa Warna/Tabel)
+                </option>
+              </select>
+            </div>
             
-            <div className="mt-4 text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
-              💡 <strong>Informasi:</strong> Dokumen PDF akan dikonversi secara langsung menjadi dokumen Word (.doc) yang rapi, menjaga ukuran huruf, format cetak tebal/miring, dan perataan paragraf secara otomatis.
+            <div className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
+              💡 <strong>Rekomendasi:</strong> Gunakan mode <strong>Presisi Visual 1:1</strong> untuk menjaga banner header hijau, tabel, warna latar, logo, dan tata letak PDF agar 100% identik di Microsoft Word.
             </div>
           </div>
 
@@ -103,7 +124,7 @@ function Page() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
                   {progress.total > 0 
                     ? `Mengonversi (${progress.done}/${progress.total})…` 
-                    : "Mengekstrak teks…"}
+                    : "Memproses..."}
                 </>
               ) : (
                 "Konversi ke Word"
