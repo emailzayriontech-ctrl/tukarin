@@ -12,16 +12,23 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WatermarkPdfRouteImport } from './routes/watermark-pdf'
 import { Route as VideoDownloaderRouteImport } from './routes/video-downloader'
 import { Route as UpscaleImageRouteImport } from './routes/upscale-image'
+import { Route as UnlockPdfRouteImport } from './routes/unlock-pdf'
 import { Route as TentangRouteImport } from './routes/tentang'
 import { Route as SplitPdfRouteImport } from './routes/split-pdf'
+import { Route as SignPdfRouteImport } from './routes/sign-pdf'
 import { Route as RotatePdfRouteImport } from './routes/rotate-pdf'
+import { Route as RepairPdfRouteImport } from './routes/repair-pdf'
 import { Route as RemoveBackgroundRouteImport } from './routes/remove-background'
+import { Route as ProtectPdfRouteImport } from './routes/protect-pdf'
 import { Route as PdfToWordRouteImport } from './routes/pdf-to-word'
+import { Route as PdfToMarkdownRouteImport } from './routes/pdf-to-markdown'
 import { Route as PdfToImageRouteImport } from './routes/pdf-to-image'
+import { Route as PageNumbersPdfRouteImport } from './routes/page-numbers-pdf'
 import { Route as OrganizePdfRouteImport } from './routes/organize-pdf'
 import { Route as MergePdfRouteImport } from './routes/merge-pdf'
 import { Route as ImageToPdfRouteImport } from './routes/image-to-pdf'
 import { Route as HeicToJpgRouteImport } from './routes/heic-to-jpg'
+import { Route as ExtractPagesRouteImport } from './routes/extract-pages'
 import { Route as ConvertImageRouteImport } from './routes/convert-image'
 import { Route as CompressPdfRouteImport } from './routes/compress-pdf'
 import { Route as CompressImageRouteImport } from './routes/compress-image'
@@ -42,6 +49,11 @@ const UpscaleImageRoute = UpscaleImageRouteImport.update({
   path: '/upscale-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UnlockPdfRoute = UnlockPdfRouteImport.update({
+  id: '/unlock-pdf',
+  path: '/unlock-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TentangRoute = TentangRouteImport.update({
   id: '/tentang',
   path: '/tentang',
@@ -52,9 +64,19 @@ const SplitPdfRoute = SplitPdfRouteImport.update({
   path: '/split-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignPdfRoute = SignPdfRouteImport.update({
+  id: '/sign-pdf',
+  path: '/sign-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RotatePdfRoute = RotatePdfRouteImport.update({
   id: '/rotate-pdf',
   path: '/rotate-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepairPdfRoute = RepairPdfRouteImport.update({
+  id: '/repair-pdf',
+  path: '/repair-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RemoveBackgroundRoute = RemoveBackgroundRouteImport.update({
@@ -62,14 +84,29 @@ const RemoveBackgroundRoute = RemoveBackgroundRouteImport.update({
   path: '/remove-background',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProtectPdfRoute = ProtectPdfRouteImport.update({
+  id: '/protect-pdf',
+  path: '/protect-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PdfToWordRoute = PdfToWordRouteImport.update({
   id: '/pdf-to-word',
   path: '/pdf-to-word',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PdfToMarkdownRoute = PdfToMarkdownRouteImport.update({
+  id: '/pdf-to-markdown',
+  path: '/pdf-to-markdown',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PdfToImageRoute = PdfToImageRouteImport.update({
   id: '/pdf-to-image',
   path: '/pdf-to-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PageNumbersPdfRoute = PageNumbersPdfRouteImport.update({
+  id: '/page-numbers-pdf',
+  path: '/page-numbers-pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrganizePdfRoute = OrganizePdfRouteImport.update({
@@ -90,6 +127,11 @@ const ImageToPdfRoute = ImageToPdfRouteImport.update({
 const HeicToJpgRoute = HeicToJpgRouteImport.update({
   id: '/heic-to-jpg',
   path: '/heic-to-jpg',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExtractPagesRoute = ExtractPagesRouteImport.update({
+  id: '/extract-pages',
+  path: '/extract-pages',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConvertImageRoute = ConvertImageRouteImport.update({
@@ -118,16 +160,23 @@ export interface FileRoutesByFullPath {
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
   '/convert-image': typeof ConvertImageRoute
+  '/extract-pages': typeof ExtractPagesRoute
   '/heic-to-jpg': typeof HeicToJpgRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
+  '/page-numbers-pdf': typeof PageNumbersPdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/pdf-to-markdown': typeof PdfToMarkdownRoute
   '/pdf-to-word': typeof PdfToWordRoute
+  '/protect-pdf': typeof ProtectPdfRoute
   '/remove-background': typeof RemoveBackgroundRoute
+  '/repair-pdf': typeof RepairPdfRoute
   '/rotate-pdf': typeof RotatePdfRoute
+  '/sign-pdf': typeof SignPdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/unlock-pdf': typeof UnlockPdfRoute
   '/upscale-image': typeof UpscaleImageRoute
   '/video-downloader': typeof VideoDownloaderRoute
   '/watermark-pdf': typeof WatermarkPdfRoute
@@ -137,16 +186,23 @@ export interface FileRoutesByTo {
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
   '/convert-image': typeof ConvertImageRoute
+  '/extract-pages': typeof ExtractPagesRoute
   '/heic-to-jpg': typeof HeicToJpgRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
+  '/page-numbers-pdf': typeof PageNumbersPdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/pdf-to-markdown': typeof PdfToMarkdownRoute
   '/pdf-to-word': typeof PdfToWordRoute
+  '/protect-pdf': typeof ProtectPdfRoute
   '/remove-background': typeof RemoveBackgroundRoute
+  '/repair-pdf': typeof RepairPdfRoute
   '/rotate-pdf': typeof RotatePdfRoute
+  '/sign-pdf': typeof SignPdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/unlock-pdf': typeof UnlockPdfRoute
   '/upscale-image': typeof UpscaleImageRoute
   '/video-downloader': typeof VideoDownloaderRoute
   '/watermark-pdf': typeof WatermarkPdfRoute
@@ -157,16 +213,23 @@ export interface FileRoutesById {
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
   '/convert-image': typeof ConvertImageRoute
+  '/extract-pages': typeof ExtractPagesRoute
   '/heic-to-jpg': typeof HeicToJpgRoute
   '/image-to-pdf': typeof ImageToPdfRoute
   '/merge-pdf': typeof MergePdfRoute
   '/organize-pdf': typeof OrganizePdfRoute
+  '/page-numbers-pdf': typeof PageNumbersPdfRoute
   '/pdf-to-image': typeof PdfToImageRoute
+  '/pdf-to-markdown': typeof PdfToMarkdownRoute
   '/pdf-to-word': typeof PdfToWordRoute
+  '/protect-pdf': typeof ProtectPdfRoute
   '/remove-background': typeof RemoveBackgroundRoute
+  '/repair-pdf': typeof RepairPdfRoute
   '/rotate-pdf': typeof RotatePdfRoute
+  '/sign-pdf': typeof SignPdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
+  '/unlock-pdf': typeof UnlockPdfRoute
   '/upscale-image': typeof UpscaleImageRoute
   '/video-downloader': typeof VideoDownloaderRoute
   '/watermark-pdf': typeof WatermarkPdfRoute
@@ -178,16 +241,23 @@ export interface FileRouteTypes {
     | '/compress-image'
     | '/compress-pdf'
     | '/convert-image'
+    | '/extract-pages'
     | '/heic-to-jpg'
     | '/image-to-pdf'
     | '/merge-pdf'
     | '/organize-pdf'
+    | '/page-numbers-pdf'
     | '/pdf-to-image'
+    | '/pdf-to-markdown'
     | '/pdf-to-word'
+    | '/protect-pdf'
     | '/remove-background'
+    | '/repair-pdf'
     | '/rotate-pdf'
+    | '/sign-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/unlock-pdf'
     | '/upscale-image'
     | '/video-downloader'
     | '/watermark-pdf'
@@ -197,16 +267,23 @@ export interface FileRouteTypes {
     | '/compress-image'
     | '/compress-pdf'
     | '/convert-image'
+    | '/extract-pages'
     | '/heic-to-jpg'
     | '/image-to-pdf'
     | '/merge-pdf'
     | '/organize-pdf'
+    | '/page-numbers-pdf'
     | '/pdf-to-image'
+    | '/pdf-to-markdown'
     | '/pdf-to-word'
+    | '/protect-pdf'
     | '/remove-background'
+    | '/repair-pdf'
     | '/rotate-pdf'
+    | '/sign-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/unlock-pdf'
     | '/upscale-image'
     | '/video-downloader'
     | '/watermark-pdf'
@@ -216,16 +293,23 @@ export interface FileRouteTypes {
     | '/compress-image'
     | '/compress-pdf'
     | '/convert-image'
+    | '/extract-pages'
     | '/heic-to-jpg'
     | '/image-to-pdf'
     | '/merge-pdf'
     | '/organize-pdf'
+    | '/page-numbers-pdf'
     | '/pdf-to-image'
+    | '/pdf-to-markdown'
     | '/pdf-to-word'
+    | '/protect-pdf'
     | '/remove-background'
+    | '/repair-pdf'
     | '/rotate-pdf'
+    | '/sign-pdf'
     | '/split-pdf'
     | '/tentang'
+    | '/unlock-pdf'
     | '/upscale-image'
     | '/video-downloader'
     | '/watermark-pdf'
@@ -236,16 +320,23 @@ export interface RootRouteChildren {
   CompressImageRoute: typeof CompressImageRoute
   CompressPdfRoute: typeof CompressPdfRoute
   ConvertImageRoute: typeof ConvertImageRoute
+  ExtractPagesRoute: typeof ExtractPagesRoute
   HeicToJpgRoute: typeof HeicToJpgRoute
   ImageToPdfRoute: typeof ImageToPdfRoute
   MergePdfRoute: typeof MergePdfRoute
   OrganizePdfRoute: typeof OrganizePdfRoute
+  PageNumbersPdfRoute: typeof PageNumbersPdfRoute
   PdfToImageRoute: typeof PdfToImageRoute
+  PdfToMarkdownRoute: typeof PdfToMarkdownRoute
   PdfToWordRoute: typeof PdfToWordRoute
+  ProtectPdfRoute: typeof ProtectPdfRoute
   RemoveBackgroundRoute: typeof RemoveBackgroundRoute
+  RepairPdfRoute: typeof RepairPdfRoute
   RotatePdfRoute: typeof RotatePdfRoute
+  SignPdfRoute: typeof SignPdfRoute
   SplitPdfRoute: typeof SplitPdfRoute
   TentangRoute: typeof TentangRoute
+  UnlockPdfRoute: typeof UnlockPdfRoute
   UpscaleImageRoute: typeof UpscaleImageRoute
   VideoDownloaderRoute: typeof VideoDownloaderRoute
   WatermarkPdfRoute: typeof WatermarkPdfRoute
@@ -274,6 +365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UpscaleImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/unlock-pdf': {
+      id: '/unlock-pdf'
+      path: '/unlock-pdf'
+      fullPath: '/unlock-pdf'
+      preLoaderRoute: typeof UnlockPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tentang': {
       id: '/tentang'
       path: '/tentang'
@@ -288,11 +386,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplitPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign-pdf': {
+      id: '/sign-pdf'
+      path: '/sign-pdf'
+      fullPath: '/sign-pdf'
+      preLoaderRoute: typeof SignPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/rotate-pdf': {
       id: '/rotate-pdf'
       path: '/rotate-pdf'
       fullPath: '/rotate-pdf'
       preLoaderRoute: typeof RotatePdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/repair-pdf': {
+      id: '/repair-pdf'
+      path: '/repair-pdf'
+      fullPath: '/repair-pdf'
+      preLoaderRoute: typeof RepairPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/remove-background': {
@@ -302,6 +414,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RemoveBackgroundRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/protect-pdf': {
+      id: '/protect-pdf'
+      path: '/protect-pdf'
+      fullPath: '/protect-pdf'
+      preLoaderRoute: typeof ProtectPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pdf-to-word': {
       id: '/pdf-to-word'
       path: '/pdf-to-word'
@@ -309,11 +428,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PdfToWordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pdf-to-markdown': {
+      id: '/pdf-to-markdown'
+      path: '/pdf-to-markdown'
+      fullPath: '/pdf-to-markdown'
+      preLoaderRoute: typeof PdfToMarkdownRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pdf-to-image': {
       id: '/pdf-to-image'
       path: '/pdf-to-image'
       fullPath: '/pdf-to-image'
       preLoaderRoute: typeof PdfToImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/page-numbers-pdf': {
+      id: '/page-numbers-pdf'
+      path: '/page-numbers-pdf'
+      fullPath: '/page-numbers-pdf'
+      preLoaderRoute: typeof PageNumbersPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/organize-pdf': {
@@ -342,6 +475,13 @@ declare module '@tanstack/react-router' {
       path: '/heic-to-jpg'
       fullPath: '/heic-to-jpg'
       preLoaderRoute: typeof HeicToJpgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/extract-pages': {
+      id: '/extract-pages'
+      path: '/extract-pages'
+      fullPath: '/extract-pages'
+      preLoaderRoute: typeof ExtractPagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/convert-image': {
@@ -380,16 +520,23 @@ const rootRouteChildren: RootRouteChildren = {
   CompressImageRoute: CompressImageRoute,
   CompressPdfRoute: CompressPdfRoute,
   ConvertImageRoute: ConvertImageRoute,
+  ExtractPagesRoute: ExtractPagesRoute,
   HeicToJpgRoute: HeicToJpgRoute,
   ImageToPdfRoute: ImageToPdfRoute,
   MergePdfRoute: MergePdfRoute,
   OrganizePdfRoute: OrganizePdfRoute,
+  PageNumbersPdfRoute: PageNumbersPdfRoute,
   PdfToImageRoute: PdfToImageRoute,
+  PdfToMarkdownRoute: PdfToMarkdownRoute,
   PdfToWordRoute: PdfToWordRoute,
+  ProtectPdfRoute: ProtectPdfRoute,
   RemoveBackgroundRoute: RemoveBackgroundRoute,
+  RepairPdfRoute: RepairPdfRoute,
   RotatePdfRoute: RotatePdfRoute,
+  SignPdfRoute: SignPdfRoute,
   SplitPdfRoute: SplitPdfRoute,
   TentangRoute: TentangRoute,
+  UnlockPdfRoute: UnlockPdfRoute,
   UpscaleImageRoute: UpscaleImageRoute,
   VideoDownloaderRoute: VideoDownloaderRoute,
   WatermarkPdfRoute: WatermarkPdfRoute,
