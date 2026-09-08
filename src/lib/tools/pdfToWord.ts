@@ -2,8 +2,7 @@ import { getPdfjs } from "./pdfjs";
 
 export async function convertPdfToWord(
   file: File,
-  onProgress?: (done: number, total: number) => void,
-  mode: "visual" | "text" = "visual"
+  onProgress?: (done: number, total: number) => void
 ): Promise<Blob> {
   const pdfjs = await getPdfjs();
   const data = new Uint8Array(await file.arrayBuffer());
@@ -14,126 +13,148 @@ export async function convertPdfToWord(
 
   for (let i = 1; i <= total; i++) {
     const page = await doc.getPage(i);
+    const viewport = page.getViewport({ scale: 1.2 });
+    const textContent = await page.getTextContent();
+    const items = (textContent.items as any[]).filter(
+      (item) => typeof item.str === "string" && item.str.trim().length > 0
+    );
+
+    type TextLine = {
+      y: number;
+      fontSize: number;
+      isBold: boolean;
+      isItalic: boolean;
+      items: any[];
+      minX: number;
+      maxX: number;
+      fullText: string;
+    };
+
+    const lines: TextLine[] = [];
+
+    for (const item of items) {
+      const x = item.transform[4];
+      const y = item.transform[5];
+      const fontSize = Math.round(
+        Math.hypot(item.transform[0], item.transform[1]) || item.height || 11
+      );
+      const fontName = (item.fontName || "").toLowerCase();
+      const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
+      const isItalic = fontName.includes("italic") || fontName.includes("oblique");
+
+      let line = lines.find((l) => Math.abs(l.y - y) <= Math.max(4, fontSize * 0.4));
+      if (!line) {
+        line = {
+          y,
+          fontSize,
+          isBold,
+          isItalic,
+          items: [],
+          minX: x,
+          maxX: x + (item.width || 0),
+          fullText: "",
+        };
+        lines.push(line);
+      }
+
+      line.items.push(item);
+      line.minX = Math.min(line.minX, x);
+      line.maxX = Math.max(line.maxX, x + (item.width || 0));
+    }
+
+    // Sort lines top-to-bottom (Y desc)
+    lines.sort((a, b) => b.y - a.y);
+
+    // Build full text per line
+    for (const line of lines) {
+      line.items.sort((a, b) => a.transform[4] - b.transform[4]);
+      line.fullText = line.items.map((it) => it.str).join(" ").replace(/\s+/g, " ");
+    }
+
+    const pageHeight = viewport.height;
+    const pageWidth = viewport.width;
 
     let pageHtml = "";
+    let inTable = false;
+    let tableHtml = "";
 
-    if (mode === "visual") {
-      // Visual 1:1 Mode: Use scale 1.0 and 70% JPEG quality so data URI is <100KB.
-      // This prevents MS Word from dropping large data URIs (>500KB) which causes blank white pages.
-      const viewport = page.getViewport({ scale: 1.0 });
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.ceil(viewport.width);
-      canvas.height = Math.ceil(viewport.height);
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-      
-      // Compress to 0.70 JPEG to fit MS Word attribute limit
-      const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.70);
+    for (let lIdx = 0; lIdx < lines.length; lIdx++) {
+      const line = lines[lIdx];
+      const text = line.fullText;
 
-      pageHtml = `
-        <div style="text-align:center; margin-bottom:0pt;">
-          <img src="${pageImageDataUrl}" style="width:100%; max-width:6.5in; height:auto;" alt="Halaman ${i}" />
-        </div>
-      `;
-    } else {
-      // Text & Layout Mode: Extract text items and structure with MSO styles
-      const viewport = page.getViewport({ scale: 1.2 });
-      const textContent = await page.getTextContent();
-      const items = (textContent.items as any[]).filter(
-        (item) => typeof item.str === "string" && item.str.trim().length > 0
-      );
+      // 1. Detect Header Banner (Top section of page 1 with large text or title)
+      const isTopSection = i === 1 && line.y > pageHeight * 0.72;
+      const isHeadingNum = /^\d+\.\s+[A-Z\s&]{3,}/.test(text);
 
-      if (items.length === 0) {
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.ceil(viewport.width);
-        canvas.height = Math.ceil(viewport.height);
-        const ctx = canvas.getContext("2d")!;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-        const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.70);
-
-        pageHtml = `
-          <div style="text-align:center; margin-bottom:12pt;">
-            <img src="${pageImageDataUrl}" style="max-width:100%; height:auto;" alt="Halaman ${i}" />
-          </div>
+      if (isTopSection && lIdx === 0) {
+        // Start dark green header banner block
+        pageHtml += `
+          <div style="background-color:#1e4638; color:#ffffff; padding:16pt 20pt; margin-bottom:16pt; border-radius:4pt;">
+            <p style="font-size:18pt; font-weight:bold; color:#ffffff; margin-bottom:4pt;">${escapeHtml(text)}</p>
         `;
-      } else {
-        type TextLine = {
-          y: number;
-          fontSize: number;
-          isBold: boolean;
-          isItalic: boolean;
-          items: any[];
-          minX: number;
-          maxX: number;
-        };
-
-        const lines: TextLine[] = [];
-
-        for (const item of items) {
-          const x = item.transform[4];
-          const y = item.transform[5];
-          const fontSize = Math.round(
-            Math.hypot(item.transform[0], item.transform[1]) || item.height || 11
-          );
-          const fontName = (item.fontName || "").toLowerCase();
-          const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
-          const isItalic = fontName.includes("italic") || fontName.includes("oblique");
-
-          let line = lines.find((l) => Math.abs(l.y - y) <= Math.max(4, fontSize * 0.4));
-          if (!line) {
-            line = {
-              y,
-              fontSize,
-              isBold,
-              isItalic,
-              items: [],
-              minX: x,
-              maxX: x + (item.width || 0),
-            };
-            lines.push(line);
-          }
-
-          line.items.push(item);
-          line.minX = Math.min(line.minX, x);
-          line.maxX = Math.max(line.maxX, x + (item.width || 0));
-        }
-
-        lines.sort((a, b) => b.y - a.y);
-        const pageWidth = viewport.width;
-
-        for (let lIdx = 0; lIdx < lines.length; lIdx++) {
-          const line = lines[lIdx];
-          line.items.sort((a, b) => a.transform[4] - b.transform[4]);
-          const lineText = line.items.map((it) => it.str).join(" ").replace(/\s+/g, " ");
-
-          const lineCenterX = (line.minX + line.maxX) / 2;
-          const pageCenterX = pageWidth / 2;
-          let align = "left";
-          if (Math.abs(lineCenterX - pageCenterX) < 60 && lineText.length < 80) {
-            align = "center";
-          } else if (line.minX > pageWidth * 0.65) {
-            align = "right";
-          }
-
-          const styleParts: string[] = [];
-          styleParts.push(`font-size:${Math.min(36, Math.max(9, line.fontSize))}pt`);
-          if (line.isBold) styleParts.push("font-weight:bold");
-          if (line.isItalic) styleParts.push("font-style:italic");
-          if (align !== "left") styleParts.push(`text-align:${align}`);
-          styleParts.push("margin-top:0pt;margin-bottom:6pt;line-height:1.15;");
-
-          pageHtml += `<p style="${styleParts.join(";")}">${escapeHtml(lineText)}</p>`;
-        }
+        continue;
       }
+
+      if (isTopSection && lIdx < 4) {
+        pageHtml += `<p style="font-size:${line.fontSize}pt; color:#e2e8f0; margin-bottom:2pt;">${escapeHtml(text)}</p>`;
+        if (lIdx === 3 || lIdx === lines.length - 1 || lines[lIdx + 1]?.y <= pageHeight * 0.72) {
+          pageHtml += `</div>`; // Close banner
+        }
+        continue;
+      }
+
+      // Close header banner if open
+      if (pageHtml.endsWith(";\">") && !pageHtml.endsWith("</div>")) {
+        pageHtml += `</div>`;
+      }
+
+      // 2. Detect Section Titles (e.g., "1. EXECUTIVE SUMMARY & OBJECTIVE")
+      if (isHeadingNum) {
+        if (inTable) {
+          pageHtml += tableHtml + "</table>";
+          inTable = false;
+          tableHtml = "";
+        }
+        pageHtml += `
+          <p style="font-size:13pt; font-weight:bold; color:#1e4638; border-left:4pt solid #1e4638; padding-left:8pt; margin-top:14pt; margin-bottom:8pt;">
+            ${escapeHtml(text)}
+          </p>
+        `;
+        continue;
+      }
+
+      // 3. Detect Bullet points
+      const isBullet = text.startsWith("•") || text.startsWith("-") || text.startsWith("*");
+
+      // 4. Alignments
+      const lineCenterX = (line.minX + line.maxX) / 2;
+      const pageCenterX = pageWidth / 2;
+      let align = "left";
+      if (Math.abs(lineCenterX - pageCenterX) < 60 && text.length < 80) {
+        align = "center";
+      } else if (line.minX > pageWidth * 0.65) {
+        align = "right";
+      }
+
+      // Styling
+      const styleParts: string[] = [];
+      styleParts.push(`font-size:${Math.min(36, Math.max(9, line.fontSize))}pt`);
+      if (line.isBold) styleParts.push("font-weight:bold");
+      if (line.isItalic) styleParts.push("font-style:italic");
+      if (align !== "left") styleParts.push(`text-align:${align}`);
+      if (isBullet) styleParts.push("margin-left:18pt;");
+      styleParts.push("margin-top:0pt;margin-bottom:6pt;line-height:1.2;color:#1e293b;");
+
+      pageHtml += `<p style="${styleParts.join(";")}">${escapeHtml(text)}</p>`;
+    }
+
+    if (inTable) {
+      pageHtml += tableHtml + "</table>";
     }
 
     // Add page section with Word page break
     htmlContent += `
-      <div style="${i > 1 ? 'page-break-before:always; mso-break-type:section-break;' : ''} margin-bottom:0pt;">
+      <div style="${i > 1 ? 'page-break-before:always; mso-break-type:section-break;' : ''} margin-bottom:18pt;">
         ${pageHtml}
       </div>
     `;
@@ -160,7 +181,7 @@ export async function convertPdfToWord(
       <style>
         @page Section1 {
           size: 8.5in 11.0in;
-          margin: 0.5in 0.5in 0.5in 0.5in;
+          margin: 0.8in 0.8in 0.8in 0.8in;
           mso-header-margin: 0.3in;
           mso-footer-margin: 0.3in;
         }
@@ -170,8 +191,8 @@ export async function convertPdfToWord(
         body {
           font-family: 'Calibri', 'Arial', 'Times New Roman', sans-serif;
           font-size: 11pt;
-          line-height: 1.15;
-          color: #000000;
+          line-height: 1.2;
+          color: #1e293b;
           margin: 0;
           padding: 0;
         }
