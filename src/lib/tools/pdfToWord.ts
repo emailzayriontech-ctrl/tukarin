@@ -21,166 +21,174 @@ export async function convertPdfToWord(
 
   const bodyElementsXml: string[] = [];
 
-  for (let i = 1; i <= total; i++) {
-    const page = await doc.getPage(i);
+  for (let pageNum = 1; pageNum <= total; pageNum++) {
+    const page = await doc.getPage(pageNum);
     const viewport = page.getViewport({ scale: 1.0 });
 
-    if (i === 1) {
+    if (pageNum === 1) {
       firstPageWidthPt = viewport.width;
       firstPageHeightPt = viewport.height;
     }
 
     const textContent = await page.getTextContent();
-    const items = (textContent.items as any[]).filter(
-      (item) => typeof item.str === "string" && item.str.trim().length > 0
-    );
+    const styles = textContent.styles || {};
 
-    type TextLine = {
+    type Fragment = {
+      str: string;
+      x: number;
       y: number;
+      width: number;
+      height: number;
       fontSize: number;
       isBold: boolean;
       isItalic: boolean;
-      items: any[];
-      minX: number;
-      maxX: number;
-      fullText: string;
+      fontName: string;
     };
 
-    const lines: TextLine[] = [];
+    const fragments: Fragment[] = [];
 
-    for (const item of items) {
+    for (const item of textContent.items as any[]) {
+      if (typeof item.str !== "string" || item.str.length === 0) continue;
+
       const x = item.transform[4];
       const y = item.transform[5];
       const fontSize = Math.round(
         Math.hypot(item.transform[0], item.transform[1]) || item.height || 11
       );
-      const fontName = (item.fontName || "").toLowerCase();
-      const isBold =
-        fontName.includes("bold") ||
-        fontName.includes("black") ||
-        fontName.includes("heavy") ||
-        fontName.includes("bld");
-      const isItalic =
-        fontName.includes("italic") || fontName.includes("oblique");
 
-      let line = lines.find((l) => Math.abs(l.y - y) <= Math.max(4, fontSize * 0.4));
+      const fontKey = item.fontName || "";
+      const fontObj = styles[fontKey];
+      const fontNameLower = (fontKey + " " + (fontObj?.fontFamily || "")).toLowerCase();
+
+      const isBold =
+        fontNameLower.includes("bold") ||
+        fontNameLower.includes("black") ||
+        fontNameLower.includes("heavy") ||
+        fontNameLower.includes("bld") ||
+        fontNameLower.includes("w7") ||
+        fontNameLower.includes("w8") ||
+        fontNameLower.includes("w9");
+
+      const isItalic =
+        fontNameLower.includes("italic") || fontNameLower.includes("oblique");
+
+      fragments.push({
+        str: item.str,
+        x,
+        y,
+        width: item.width || 0,
+        height: item.height || fontSize,
+        fontSize,
+        isBold,
+        isItalic,
+        fontName: fontKey,
+      });
+    }
+
+    type Line = {
+      y: number;
+      fontSize: number;
+      minX: number;
+      maxX: number;
+      fragments: Fragment[];
+      fullText: string;
+    };
+
+    const lines: Line[] = [];
+
+    for (const frag of fragments) {
+      let line = lines.find(
+        (l) => Math.abs(l.y - frag.y) <= Math.max(3, frag.fontSize * 0.35)
+      );
       if (!line) {
         line = {
-          y,
-          fontSize,
-          isBold,
-          isItalic,
-          items: [],
-          minX: x,
-          maxX: x + (item.width || 0),
+          y: frag.y,
+          fontSize: frag.fontSize,
+          minX: frag.x,
+          maxX: frag.x + frag.width,
+          fragments: [],
           fullText: "",
         };
         lines.push(line);
       }
-
-      line.items.push({ ...item, isBold, isItalic, fontSize, x, y });
-      line.minX = Math.min(line.minX, x);
-      line.maxX = Math.max(line.maxX, x + (item.width || 0));
+      line.fragments.push(frag);
+      line.minX = Math.min(line.minX, frag.x);
+      line.maxX = Math.max(line.maxX, frag.x + frag.width);
+      line.fontSize = Math.max(line.fontSize, frag.fontSize);
     }
 
     // Sort lines top-to-bottom (Y desc)
     lines.sort((a, b) => b.y - a.y);
 
-    // Build full text per line
+    // Build fullText and sort fragments left-to-right (X asc)
     for (const line of lines) {
-      line.items.sort((a, b) => a.x - b.x);
-      line.fullText = line.items.map((it) => it.str).join(" ").replace(/\s+/g, " ");
+      line.fragments.sort((a, b) => a.x - b.x);
+      line.fullText = line.fragments.map((f) => f.str).join("").replace(/\s+/g, " ");
     }
 
     const pageHeight = viewport.height;
     const pageWidth = viewport.width;
 
-    // Detect Page 1 Top Banner Lines
-    let bannerLeftLines: TextLine[] = [];
-    let bannerRightLines: TextLine[] = [];
-    let startBodyIdx = 0;
+    let bannerLeftLines: Line[] = [];
+    let bannerRightLines: Line[] = [];
+    let startBodyLineIdx = 0;
 
-    if (i === 1) {
-      const topSectionLines: TextLine[] = [];
+    if (pageNum === 1) {
+      const topLines: Line[] = [];
       for (let lIdx = 0; lIdx < lines.length; lIdx++) {
         const line = lines[lIdx];
-        const isHeadingNum = /^\d+\.\s+[A-Z\s&]{3,}/.test(line.fullText);
-        if (isHeadingNum || line.y < pageHeight * 0.65) {
-          startBodyIdx = lIdx;
+        const isHeadingNum = /^\d+\.\s+[A-Z\s&]{3,}/.test(line.fullText.trim());
+        if (isHeadingNum || line.y < pageHeight * 0.62) {
+          startBodyLineIdx = lIdx;
           break;
         }
-        topSectionLines.push(line);
-        startBodyIdx = lIdx + 1;
+        topLines.push(line);
+        startBodyLineIdx = lIdx + 1;
       }
 
-      const isBannerPresent = topSectionLines.some((l) =>
+      const hasBannerKeywords = topLines.some((l) =>
         /product|requirement|document|prd|klien|proyek|versi|tanggal|status|sistem/i.test(
           l.fullText
         )
       );
 
-      if (isBannerPresent && topSectionLines.length > 0) {
-        for (const line of topSectionLines) {
-          const isRightMeta =
-            line.minX > pageWidth * 0.45 ||
+      if (hasBannerKeywords && topLines.length > 0) {
+        for (const line of topLines) {
+          const isRightSide =
+            line.minX > pageWidth * 0.42 ||
             /^(klien|proyek|versi|tanggal|status):/i.test(line.fullText.trim());
-          if (isRightMeta) {
+          if (isRightSide) {
             bannerRightLines.push(line);
           } else {
             bannerLeftLines.push(line);
           }
         }
       } else {
-        startBodyIdx = 0;
+        startBodyLineIdx = 0;
       }
     }
 
-    // Emit Green Header Banner Table if present
     if (bannerLeftLines.length > 0 || bannerRightLines.length > 0) {
-      const leftCellXml = bannerLeftLines
-        .map((l) => {
-          const szHalfPt = Math.round(l.fontSize * 2);
-          const isBig = l.fontSize >= 16;
-          return `
-            <w:p>
-              <w:pPr>
-                <w:spacing w:before="0" w:after="${isBig ? "60" : "30"}" w:line="240" w:lineRule="auto"/>
-              </w:pPr>
-              <w:r>
-                <w:rPr>
-                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                  <w:b/>
-                  <w:sz w:val="${szHalfPt}"/>
-                  <w:color w:val="FFFFFF"/>
-                </w:rPr>
-                <w:t xml:space="preserve">${escapeXml(l.fullText)}</w:t>
-              </w:r>
-            </w:p>
-          `;
-        })
-        .join("");
+      const renderCellLines = (cellLines: Line[], isRightAlign: boolean) => {
+        return cellLines
+          .map((line) => {
+            const runsXml = renderFragmentsToRuns(line.fragments, "FFFFFF");
+            const alignXml = isRightAlign ? `<w:jc w:val="right"/>` : "";
+            return `
+              <w:p>
+                <w:pPr>
+                  ${alignXml}
+                  <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
+                </w:pPr>
+                ${runsXml}
+              </w:p>
+            `;
+          })
+          .join("");
+      };
 
-      const rightCellXml = bannerRightLines
-        .map((l) => {
-          const szHalfPt = Math.round(l.fontSize * 2);
-          return `
-            <w:p>
-              <w:pPr>
-                <w:jc w:val="right"/>
-                <w:spacing w:before="0" w:after="30" w:line="240" w:lineRule="auto"/>
-              </w:pPr>
-              <w:r>
-                <w:rPr>
-                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                  <w:sz w:val="${Math.max(18, szHalfPt)}"/>
-                  <w:color w:val="FFFFFF"/>
-                </w:rPr>
-                <w:t xml:space="preserve">${escapeXml(l.fullText)}</w:t>
-              </w:r>
-            </w:p>
-          `;
-        })
-        .join("");
+      const leftXml = renderCellLines(bannerLeftLines, false);
+      const rightXml = renderCellLines(bannerRightLines, true);
 
       const bannerTableXml = `
         <w:tbl>
@@ -195,10 +203,10 @@ export async function convertPdfToWord(
               <w:insideV w:val="none"/>
             </w:tblBorders>
             <w:tblCellMar>
-              <w:top w:w="280" w:type="dxa"/>
-              <w:left w:w="320" w:type="dxa"/>
-              <w:bottom w:w="280" w:type="dxa"/>
-              <w:right w:w="320" w:type="dxa"/>
+              <w:top w:w="300" w:type="dxa"/>
+              <w:left w:w="360" w:type="dxa"/>
+              <w:bottom w:w="300" w:type="dxa"/>
+              <w:right w:w="360" w:type="dxa"/>
             </w:tblCellMar>
           </w:tblPr>
           <w:tr>
@@ -208,7 +216,7 @@ export async function convertPdfToWord(
                 <w:shd w:val="clear" w:color="auto" w:fill="1E4638"/>
                 <w:vAlign w:val="center"/>
               </w:tcPr>
-              ${leftCellXml || "<w:p/>"}
+              ${leftXml || "<w:p/>"}
             </w:tc>
             <w:tc>
               <w:tcPr>
@@ -216,27 +224,34 @@ export async function convertPdfToWord(
                 <w:shd w:val="clear" w:color="auto" w:fill="1E4638"/>
                 <w:vAlign w:val="center"/>
               </w:tcPr>
-              ${rightCellXml || "<w:p/>"}
+              ${rightXml || "<w:p/>"}
             </w:tc>
           </w:tr>
         </w:tbl>
-        <w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr></w:p>
+        <w:p><w:pPr><w:spacing w:before="0" w:after="180"/></w:pPr></w:p>
       `;
 
       bodyElementsXml.push(bannerTableXml);
     }
 
-    // Process Body Lines
-    for (let lIdx = startBodyIdx; lIdx < lines.length; lIdx++) {
+    type ParagraphGroup = {
+      isHeading: boolean;
+      isBullet: boolean;
+      align: string;
+      lines: Line[];
+    };
+
+    const paragraphs: ParagraphGroup[] = [];
+    let currentPara: ParagraphGroup | null = null;
+
+    for (let lIdx = startBodyLineIdx; lIdx < lines.length; lIdx++) {
       const line = lines[lIdx];
       const text = line.fullText.trim();
       if (!text) continue;
 
       const isHeadingNum = /^\d+\.\s+[A-Z\s&]{3,}/.test(text);
       const isBullet = text.startsWith("•") || text.startsWith("-") || text.startsWith("*");
-      const isLabelValue = /^[A-Za-z0-9\s]+:\s+/.test(text);
 
-      // Alignment calculation
       const lineCenterX = (line.minX + line.maxX) / 2;
       const pageCenterX = pageWidth / 2;
       let align = "left";
@@ -247,7 +262,38 @@ export async function convertPdfToWord(
       }
 
       if (isHeadingNum) {
-        // Section Title with Green Accent Left Border
+        currentPara = { isHeading: true, isBullet: false, align: "left", lines: [line] };
+        paragraphs.push(currentPara);
+        currentPara = null;
+        continue;
+      }
+
+      if (isBullet) {
+        currentPara = { isHeading: false, isBullet: true, align, lines: [line] };
+        paragraphs.push(currentPara);
+        continue;
+      }
+
+      if (currentPara && !currentPara.isHeading && !currentPara.isBullet) {
+        const lastLine = currentPara.lines[currentPara.lines.length - 1];
+        const yDiff = lastLine.y - line.y;
+        const fontMatch = Math.abs(lastLine.fontSize - line.fontSize) <= 2;
+        const xMatch = Math.abs(lastLine.minX - line.minX) < 40;
+
+        if (yDiff > 0 && yDiff <= line.fontSize * 1.8 && fontMatch && xMatch) {
+          currentPara.lines.push(line);
+          continue;
+        }
+      }
+
+      currentPara = { isHeading: false, isBullet: false, align, lines: [line] };
+      paragraphs.push(currentPara);
+    }
+
+    for (const para of paragraphs) {
+      if (para.isHeading) {
+        const line = para.lines[0];
+        const runsXml = renderFragmentsToRuns(line.fragments, "1E4638", true);
         bodyElementsXml.push(`
           <w:p>
             <w:pPr>
@@ -256,63 +302,30 @@ export async function convertPdfToWord(
               </w:pBdr>
               <w:spacing w:before="240" w:after="120"/>
             </w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                <w:b/>
-                <w:sz w:val="26"/>
-                <w:color w:val="1E4638"/>
-              </w:rPr>
-              <w:t xml:space="preserve">${escapeXml(text)}</w:t>
-            </w:r>
+            ${runsXml}
           </w:p>
         `);
         continue;
       }
 
-      // Paragraph formatting
-      const szHalfPt = Math.round(Math.min(36, Math.max(9, line.fontSize)) * 2);
-      const alignXml = align !== "left" ? `<w:jc w:val="${align}"/>` : "";
-      const indentXml = isBullet ? `<w:ind w:left="360"/>` : "";
-
-      // Label: Value rendering (e.g. "Objective: Build a centralized...")
-      if (isLabelValue && !isBullet) {
-        const colonIdx = text.indexOf(":");
-        const labelPart = text.substring(0, colonIdx + 1);
-        const valuePart = text.substring(colonIdx + 1);
-
-        bodyElementsXml.push(`
-          <w:p>
-            <w:pPr>
-              ${alignXml}
-              ${indentXml}
-              <w:spacing w:before="0" w:after="120" w:line="280" w:lineRule="auto"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                <w:b/>
-                <w:sz w:val="${szHalfPt}"/>
-                <w:color w:val="1E293B"/>
-              </w:rPr>
-              <w:t xml:space="preserve">${escapeXml(labelPart)}</w:t>
-            </w:r>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                <w:sz w:val="${szHalfPt}"/>
-                <w:color w:val="1E293B"/>
-              </w:rPr>
-              <w:t xml:space="preserve">${escapeXml(valuePart)}</w:t>
-            </w:r>
-          </w:p>
-        `);
-        continue;
+      const paraFragments: Fragment[] = [];
+      for (let lIdx = 0; lIdx < para.lines.length; lIdx++) {
+        const line = para.lines[lIdx];
+        if (lIdx > 0 && paraFragments.length > 0) {
+          const lastFrag = paraFragments[paraFragments.length - 1];
+          if (!lastFrag.str.endsWith(" ")) {
+            paraFragments.push({
+              ...lastFrag,
+              str: " ",
+            });
+          }
+        }
+        paraFragments.push(...line.fragments);
       }
 
-      // Normal Paragraph / Bullet
-      const boldXml = line.isBold ? "<w:b/>" : "";
-      const italicXml = line.isItalic ? "<w:i/>" : "";
+      const alignXml = para.align !== "left" ? `<w:jc w:val="${para.align}"/>` : "";
+      const indentXml = para.isBullet ? `<w:ind w:left="360"/>` : "";
+      const runsXml = renderFragmentsToRuns(paraFragments, "1E293B");
 
       bodyElementsXml.push(`
         <w:p>
@@ -321,21 +334,12 @@ export async function convertPdfToWord(
             ${indentXml}
             <w:spacing w:before="0" w:after="120" w:line="280" w:lineRule="auto"/>
           </w:pPr>
-          <w:r>
-            <w:rPr>
-              <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-              ${boldXml}
-              ${italicXml}
-              <w:sz w:val="${szHalfPt}"/>
-              <w:color w:val="1E293B"/>
-            </w:rPr>
-            <w:t xml:space="preserve">${escapeXml(text)}</w:t>
-          </w:r>
+          ${runsXml}
         </w:p>
       `);
     }
 
-    if (i < total) {
+    if (pageNum < total) {
       bodyElementsXml.push(`
         <w:p>
           <w:r>
@@ -345,7 +349,7 @@ export async function convertPdfToWord(
       `);
     }
 
-    onProgress?.(i, total);
+    onProgress?.(pageNum, total);
   }
 
   await doc.cleanup();
@@ -388,6 +392,77 @@ export async function convertPdfToWord(
     type: "blob",
     mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   });
+}
+
+function renderFragmentsToRuns(
+  fragments: any[],
+  defaultColor: string = "1E293B",
+  forceBold: boolean = false
+): string {
+  if (fragments.length === 0) return "";
+
+  type RunGroup = {
+    text: string;
+    fontSize: number;
+    isBold: boolean;
+    isItalic: boolean;
+  };
+
+  const groups: RunGroup[] = [];
+
+  for (let i = 0; i < fragments.length; i++) {
+    const frag = fragments[i];
+    const prevFrag = fragments[i - 1];
+
+    let addLeadingSpace = false;
+    if (prevFrag) {
+      const gap = frag.x - (prevFrag.x + prevFrag.width);
+      if (gap > 2.0 && !prevFrag.str.endsWith(" ") && !frag.str.startsWith(" ")) {
+        addLeadingSpace = true;
+      }
+    }
+
+    const currentText = (addLeadingSpace ? " " : "") + frag.str;
+    const isBold = forceBold || frag.isBold;
+
+    const lastGroup = groups[groups.length - 1];
+    if (
+      lastGroup &&
+      lastGroup.isBold === isBold &&
+      lastGroup.isItalic === frag.isItalic &&
+      lastGroup.fontSize === frag.fontSize
+    ) {
+      lastGroup.text += currentText;
+    } else {
+      groups.push({
+        text: currentText,
+        fontSize: frag.fontSize,
+        isBold,
+        isItalic: frag.isItalic,
+      });
+    }
+  }
+
+  return groups
+    .map((g) => {
+      const szHalfPt = Math.round(Math.min(36, Math.max(9, g.fontSize)) * 2);
+      const boldXml = g.isBold ? "<w:b/>" : "";
+      const italicXml = g.isItalic ? "<w:i/>" : "";
+
+      return `
+        <w:r>
+          <w:rPr>
+            <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+            ${boldXml}
+            ${italicXml}
+            <w:sz w:val="${szHalfPt}"/>
+            <w:color w:val="${defaultColor}"/>
+          </w:rPr>
+          <w:t xml:space="preserve">${escapeXml(g.text)}</w:t>
+        </w:r>
+      `;
+    })
+    .join("");
 }
 
 function escapeXml(str: string): string {
