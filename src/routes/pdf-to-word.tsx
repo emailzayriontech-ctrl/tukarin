@@ -16,7 +16,7 @@ export const Route = createFileRoute("/pdf-to-word")({
   head: () => ({
     meta: [
       { title: "Konversi PDF ke Word — Tukar.in" },
-      { name: "description", content: "Ubah file PDF menjadi dokumen Word (.doc) yang bisa diedit langsung secara gratis dan privat." },
+      { name: "description", content: "Ubah file PDF menjadi dokumen Word (.docx) presisi tinggi 1:1 tanpa mengubah tata letak asli secara gratis dan privat." },
     ],
   }),
   component: Page,
@@ -68,7 +68,7 @@ function Page() {
           onFiles={handleFiles}
           accept={{ "application/pdf": [".pdf"] }}
           label="Letakkan file PDF di sini"
-          hint="Pilih 1 file PDF untuk dikonversi menjadi dokumen Word (.doc)"
+          hint="Pilih 1 file PDF untuk dikonversi menjadi dokumen Word (.docx)"
         />
       )}
 
@@ -86,7 +86,7 @@ function Page() {
             </div>
             
             <div className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
-              💡 <strong>Informasi:</strong> Dokumen PDF akan dikonversi menjadi dokumen Microsoft Word (.doc) yang dapat diedit langsung, lengkap dengan banner header hijau, garis aksen judul, dan gaya paragraf terstruktur.
+              💡 <strong>Informasi:</strong> Dokumen PDF akan dikonversi menjadi dokumen Word (.docx) dengan presisi tata letak 1:1, mempertahankan seluruh banner hijau, teks, header, tabel, dan format visual asli PDF.
             </div>
           </div>
 
@@ -120,13 +120,13 @@ function Page() {
         <ResultPanel
           originalSize={file.size}
           totalSize={result.size}
-          description="Konversi PDF ke dokumen Word selesai!"
+          description="Konversi PDF ke dokumen Word (.docx) selesai!"
           onDownload={() => {
             const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
-            downloadBlob(result, `${baseName}.doc`);
+            downloadBlob(result, `${baseName}.docx`);
           }}
           onReset={reset}
-          downloadLabel="Unduh File Word"
+          downloadLabel="Unduh File Word (.docx)"
         />
       )}
     </ToolPageShell>

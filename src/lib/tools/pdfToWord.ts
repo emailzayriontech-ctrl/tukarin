@@ -1,3 +1,4 @@
+import JSZip from "jszip";
 import { getPdfjs } from "./pdfjs";
 
 export async function convertPdfToWord(
@@ -9,215 +10,172 @@ export async function convertPdfToWord(
   const doc = await pdfjs.getDocument({ data }).promise;
   const total = doc.numPages;
 
-  let htmlContent = "";
+  const zip = new JSZip();
+
+  const _relsFolder = zip.folder("_rels");
+  const wordFolder = zip.folder("word");
+  const wordRelsFolder = wordFolder?.folder("_rels");
+  const mediaFolder = wordFolder?.folder("media");
+
+  let firstPageWidthPt = 612;
+  let firstPageHeightPt = 792;
+
+  const relsXmlLines: string[] = [];
+  const bodyParagraphs: string[] = [];
 
   for (let i = 1; i <= total; i++) {
     const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale: 1.2 });
-    const textContent = await page.getTextContent();
-    const items = (textContent.items as any[]).filter(
-      (item) => typeof item.str === "string" && item.str.trim().length > 0
+    const unscaledViewport = page.getViewport({ scale: 1.0 });
+
+    if (i === 1) {
+      firstPageWidthPt = unscaledViewport.width;
+      firstPageHeightPt = unscaledViewport.height;
+    }
+
+    const renderScale = 2.0;
+    const viewport = page.getViewport({ scale: renderScale });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+
+    if (ctx) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    }
+
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const imageBytes = base64ToUint8Array(dataUrl);
+
+    const imageName = `image${i}.jpg`;
+    mediaFolder?.file(imageName, imageBytes);
+
+    const relId = `rId${i}`;
+    relsXmlLines.push(
+      `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageName}"/>`
     );
 
-    type TextLine = {
-      y: number;
-      fontSize: number;
-      isBold: boolean;
-      isItalic: boolean;
-      items: any[];
-      minX: number;
-      maxX: number;
-      fullText: string;
-    };
+    const cxEmu = Math.round(unscaledViewport.width * 12700);
+    const cyEmu = Math.round(unscaledViewport.height * 12700);
 
-    const lines: TextLine[] = [];
-
-    for (const item of items) {
-      const x = item.transform[4];
-      const y = item.transform[5];
-      const fontSize = Math.round(
-        Math.hypot(item.transform[0], item.transform[1]) || item.height || 11
-      );
-      const fontName = (item.fontName || "").toLowerCase();
-      const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
-      const isItalic = fontName.includes("italic") || fontName.includes("oblique");
-
-      let line = lines.find((l) => Math.abs(l.y - y) <= Math.max(4, fontSize * 0.4));
-      if (!line) {
-        line = {
-          y,
-          fontSize,
-          isBold,
-          isItalic,
-          items: [],
-          minX: x,
-          maxX: x + (item.width || 0),
-          fullText: "",
-        };
-        lines.push(line);
-      }
-
-      line.items.push(item);
-      line.minX = Math.min(line.minX, x);
-      line.maxX = Math.max(line.maxX, x + (item.width || 0));
-    }
-
-    // Sort lines top-to-bottom (Y desc)
-    lines.sort((a, b) => b.y - a.y);
-
-    // Build full text per line
-    for (const line of lines) {
-      line.items.sort((a, b) => a.transform[4] - b.transform[4]);
-      line.fullText = line.items.map((it) => it.str).join(" ").replace(/\s+/g, " ");
-    }
-
-    const pageHeight = viewport.height;
-    const pageWidth = viewport.width;
-
-    let pageHtml = "";
-    let inTable = false;
-    let tableHtml = "";
-
-    for (let lIdx = 0; lIdx < lines.length; lIdx++) {
-      const line = lines[lIdx];
-      const text = line.fullText;
-
-      // 1. Detect Header Banner (Top section of page 1 with large text or title)
-      const isTopSection = i === 1 && line.y > pageHeight * 0.72;
-      const isHeadingNum = /^\d+\.\s+[A-Z\s&]{3,}/.test(text);
-
-      if (isTopSection && lIdx === 0) {
-        // Start dark green header banner block
-        pageHtml += `
-          <div style="background-color:#1e4638; color:#ffffff; padding:16pt 20pt; margin-bottom:16pt; border-radius:4pt;">
-            <p style="font-size:18pt; font-weight:bold; color:#ffffff; margin-bottom:4pt;">${escapeHtml(text)}</p>
-        `;
-        continue;
-      }
-
-      if (isTopSection && lIdx < 4) {
-        pageHtml += `<p style="font-size:${line.fontSize}pt; color:#e2e8f0; margin-bottom:2pt;">${escapeHtml(text)}</p>`;
-        if (lIdx === 3 || lIdx === lines.length - 1 || lines[lIdx + 1]?.y <= pageHeight * 0.72) {
-          pageHtml += `</div>`; // Close banner
-        }
-        continue;
-      }
-
-      // Close header banner if open
-      if (pageHtml.endsWith(";\">") && !pageHtml.endsWith("</div>")) {
-        pageHtml += `</div>`;
-      }
-
-      // 2. Detect Section Titles (e.g., "1. EXECUTIVE SUMMARY & OBJECTIVE")
-      if (isHeadingNum) {
-        if (inTable) {
-          pageHtml += tableHtml + "</table>";
-          inTable = false;
-          tableHtml = "";
-        }
-        pageHtml += `
-          <p style="font-size:13pt; font-weight:bold; color:#1e4638; border-left:4pt solid #1e4638; padding-left:8pt; margin-top:14pt; margin-bottom:8pt;">
-            ${escapeHtml(text)}
-          </p>
-        `;
-        continue;
-      }
-
-      // 3. Detect Bullet points
-      const isBullet = text.startsWith("•") || text.startsWith("-") || text.startsWith("*");
-
-      // 4. Alignments
-      const lineCenterX = (line.minX + line.maxX) / 2;
-      const pageCenterX = pageWidth / 2;
-      let align = "left";
-      if (Math.abs(lineCenterX - pageCenterX) < 60 && text.length < 80) {
-        align = "center";
-      } else if (line.minX > pageWidth * 0.65) {
-        align = "right";
-      }
-
-      // Styling
-      const styleParts: string[] = [];
-      styleParts.push(`font-size:${Math.min(36, Math.max(9, line.fontSize))}pt`);
-      if (line.isBold) styleParts.push("font-weight:bold");
-      if (line.isItalic) styleParts.push("font-style:italic");
-      if (align !== "left") styleParts.push(`text-align:${align}`);
-      if (isBullet) styleParts.push("margin-left:18pt;");
-      styleParts.push("margin-top:0pt;margin-bottom:6pt;line-height:1.2;color:#1e293b;");
-
-      pageHtml += `<p style="${styleParts.join(";")}">${escapeHtml(text)}</p>`;
-    }
-
-    if (inTable) {
-      pageHtml += tableHtml + "</table>";
-    }
-
-    // Add page section with Word page break
-    htmlContent += `
-      <div style="${i > 1 ? 'page-break-before:always; mso-break-type:section-break;' : ''} margin-bottom:18pt;">
-        ${pageHtml}
-      </div>
+    const paragraph = `
+      <w:p>
+        <w:pPr>
+          <w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>
+        </w:pPr>
+        <w:r>
+          <w:drawing>
+            <wp:inline distT="0" distB="0" distL="0" distR="0">
+              <wp:extent cx="${cxEmu}" cy="${cyEmu}"/>
+              <wp:effectExtent l="0" t="0" r="0" b="0"/>
+              <wp:docPr id="${i}" name="Page ${i}"/>
+              <wp:cNvGraphicFramePr>
+                <a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/>
+              </wp:cNvGraphicFramePr>
+              <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                  <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                    <pic:nvPicPr>
+                      <pic:cNvPr id="${i}" name="Page Image ${i}"/>
+                      <pic:cNvPicPr/>
+                    </pic:nvPicPr>
+                    <pic:blipFill>
+                      <a:blip r:embed="${relId}"/>
+                      <a:stretch>
+                        <a:fillRect/>
+                      </a:stretch>
+                    </pic:blipFill>
+                    <pic:spPr>
+                      <a:xfrm>
+                        <a:off x="0" y="0"/>
+                        <a:ext cx="${cxEmu}" cy="${cyEmu}"/>
+                      </a:xfrm>
+                      <a:prstGeom prst="rect">
+                        <a:avLst/>
+                      </a:prstGeom>
+                    </pic:spPr>
+                  </pic:pic>
+                </a:graphicData>
+              </a:graphic>
+            </wp:inline>
+          </w:drawing>
+        </w:r>
+      </w:p>
     `;
+
+    bodyParagraphs.push(paragraph);
+
+    if (i < total) {
+      bodyParagraphs.push(`
+        <w:p>
+          <w:r>
+            <w:br w:type="page"/>
+          </w:r>
+        </w:p>
+      `);
+    }
 
     onProgress?.(i, total);
   }
 
   await doc.cleanup();
 
-  const wordTemplate = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-      <meta charset="utf-8">
-      <title>Dokumen Konversi Word</title>
-      <!--[if gte mso 9]>
-      <xml>
-        <w:WordDocument>
-          <w:View>Print</w:View>
-          <w:Zoom>100</w:Zoom>
-          <w:DoNotOptimizeForBrowser/>
-        </w:WordDocument>
-      </xml>
-      <![endif]-->
-      <style>
-        @page Section1 {
-          size: 8.5in 11.0in;
-          margin: 0.8in 0.8in 0.8in 0.8in;
-          mso-header-margin: 0.3in;
-          mso-footer-margin: 0.3in;
-        }
-        div.Section1 {
-          page: Section1;
-        }
-        body {
-          font-family: 'Calibri', 'Arial', 'Times New Roman', sans-serif;
-          font-size: 11pt;
-          line-height: 1.2;
-          color: #1e293b;
-          margin: 0;
-          padding: 0;
-        }
-        p {
-          margin: 0in;
-          margin-bottom: 6pt;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="Section1">
-        ${htmlContent}
-      </div>
-    </body>
-    </html>
-  `;
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="jpeg" ContentType="image/jpeg"/>
+  <Default Extension="jpg" ContentType="image/jpeg"/>
+  <Default Extension="png" ContentType="image/png"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+  zip.file("[Content_Types].xml", contentTypesXml);
 
-  return new Blob([wordTemplate], { type: "application/msword;charset=utf-8" });
+  const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+  _relsFolder?.file(".rels", rootRelsXml);
+
+  const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  ${relsXmlLines.join("\n")}
+</Relationships>`;
+  wordRelsFolder?.file("document.xml.rels", docRelsXml);
+
+  const widthTwips = Math.round(firstPageWidthPt * 20);
+  const heightTwips = Math.round(firstPageHeightPt * 20);
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+            xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+            xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+  <w:body>
+    ${bodyParagraphs.join("\n")}
+    <w:sectPr>
+      <w:pgSz w:w="${widthTwips}" w:h="${heightTwips}"/>
+      <w:pgMar w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+  wordFolder?.file("document.xml", documentXml);
+
+  return await zip.generateAsync({
+    type: "blob",
+    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+function base64ToUint8Array(base64: string): Uint8Array {
+  const base64Data = base64.replace(/^data:image\/(jpeg|png);base64,/, "");
+  const binaryString = atob(base64Data);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
 }
