@@ -1,6 +1,27 @@
 import JSZip from "jszip";
 import { getPdfjs } from "./pdfjs";
 
+type Fragment = {
+  str: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  isBold: boolean;
+  isItalic: boolean;
+  fontName: string;
+};
+
+type Line = {
+  y: number;
+  fontSize: number;
+  minX: number;
+  maxX: number;
+  items: Fragment[];
+  fullText: string;
+};
+
 export async function convertPdfToWord(
   file: File,
   onProgress?: (done: number, total: number) => void
@@ -16,8 +37,8 @@ export async function convertPdfToWord(
   const wordFolder = zip.folder("word");
   const wordRelsFolder = wordFolder?.folder("_rels");
 
-  let firstPageWidthPt = 612;
-  let firstPageHeightPt = 792;
+  let firstPageWidthPt = 595.28;
+  let firstPageHeightPt = 841.89;
 
   const bodyElementsXml: string[] = [];
 
@@ -33,19 +54,7 @@ export async function convertPdfToWord(
     const textContent = await page.getTextContent();
     const styles = textContent.styles || {};
 
-    type Fragment = {
-      str: string;
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      fontSize: number;
-      isBold: boolean;
-      isItalic: boolean;
-      fontName: string;
-    };
-
-    const fragments: Fragment[] = [];
+    const rawFragments: Fragment[] = [];
 
     for (const item of textContent.items as any[]) {
       if (typeof item.str !== "string" || item.str.length === 0) continue;
@@ -53,7 +62,7 @@ export async function convertPdfToWord(
       const x = item.transform[4];
       const y = item.transform[5];
       const fontSize = Math.round(
-        Math.hypot(item.transform[0], item.transform[1]) || item.height || 11
+        Math.hypot(item.transform[0], item.transform[1]) || item.height || 10
       );
 
       const fontKey = item.fontName || "";
@@ -67,12 +76,13 @@ export async function convertPdfToWord(
         fontNameLower.includes("bld") ||
         fontNameLower.includes("w7") ||
         fontNameLower.includes("w8") ||
-        fontNameLower.includes("w9");
+        fontNameLower.includes("w9") ||
+        fontNameLower.includes("f1");
 
       const isItalic =
         fontNameLower.includes("italic") || fontNameLower.includes("oblique");
 
-      fragments.push({
+      rawFragments.push({
         str: item.str,
         x,
         y,
@@ -85,215 +95,119 @@ export async function convertPdfToWord(
       });
     }
 
-    type Line = {
-      y: number;
-      fontSize: number;
-      minX: number;
-      maxX: number;
-      fragments: Fragment[];
-      fullText: string;
-    };
-
-    const lines: Line[] = [];
-
-    for (const frag of fragments) {
-      let line = lines.find(
-        (l) => Math.abs(l.y - frag.y) <= Math.max(3, frag.fontSize * 0.35)
-      );
-      if (!line) {
-        line = {
-          y: frag.y,
-          fontSize: frag.fontSize,
-          minX: frag.x,
-          maxX: frag.x + frag.width,
-          fragments: [],
-          fullText: "",
-        };
-        lines.push(line);
-      }
-      line.fragments.push(frag);
-      line.minX = Math.min(line.minX, frag.x);
-      line.maxX = Math.max(line.maxX, frag.x + frag.width);
-      line.fontSize = Math.max(line.fontSize, frag.fontSize);
-    }
-
-    // Sort lines top-to-bottom (Y desc)
-    lines.sort((a, b) => b.y - a.y);
-
-    // Build fullText and sort fragments left-to-right (X asc)
-    for (const line of lines) {
-      line.fragments.sort((a, b) => a.x - b.x);
-      line.fullText = line.fragments.map((f) => f.str).join("").replace(/\s+/g, " ");
-    }
-
-    const pageHeight = viewport.height;
-    const pageWidth = viewport.width;
-
-    let bannerLeftLines: Line[] = [];
-    let bannerRightLines: Line[] = [];
-    let startBodyLineIdx = 0;
-
+    // 1. Page 1 Header Banner (Y >= 745)
     if (pageNum === 1) {
-      const topLines: Line[] = [];
-      for (let lIdx = 0; lIdx < lines.length; lIdx++) {
-        const line = lines[lIdx];
-        const isHeadingNum = /^\d+\.\s+[A-Z\s&]{3,}/.test(line.fullText.trim());
-        if (isHeadingNum || line.y < pageHeight * 0.62) {
-          startBodyLineIdx = lIdx;
-          break;
-        }
-        topLines.push(line);
-        startBodyLineIdx = lIdx + 1;
-      }
+      const bannerFragments = rawFragments.filter((it) => it.y >= 745);
+      if (bannerFragments.length > 0) {
+        const leftFrags = bannerFragments.filter((it) => it.x < 350);
+        const rightFrags = bannerFragments.filter((it) => it.x >= 350);
 
-      const hasBannerKeywords = topLines.some((l) =>
-        /product|requirement|document|prd|klien|proyek|versi|tanggal|status|sistem/i.test(
-          l.fullText
-        )
-      );
+        const leftLines = groupFragmentsIntoLines(leftFrags);
+        const rightLines = groupFragmentsIntoLines(rightFrags);
 
-      if (hasBannerKeywords && topLines.length > 0) {
-        for (const line of topLines) {
-          const isRightSide =
-            line.minX > pageWidth * 0.42 ||
-            /^(klien|proyek|versi|tanggal|status):/i.test(line.fullText.trim());
-          if (isRightSide) {
-            bannerRightLines.push(line);
-          } else {
-            bannerLeftLines.push(line);
-          }
-        }
-      } else {
-        startBodyLineIdx = 0;
-      }
-    }
-
-    if (bannerLeftLines.length > 0 || bannerRightLines.length > 0) {
-      const renderCellLines = (cellLines: Line[], isRightAlign: boolean) => {
-        return cellLines
-          .map((line) => {
-            const runsXml = renderFragmentsToRuns(line.fragments, "FFFFFF");
-            const alignXml = isRightAlign ? `<w:jc w:val="right"/>` : "";
+        const leftCellXml = leftLines
+          .map((l) => {
+            const isBig = l.fontSize >= 15;
+            const szVal = Math.round(l.fontSize * 2);
             return `
               <w:p>
                 <w:pPr>
-                  ${alignXml}
-                  <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
+                  <w:spacing w:before="0" w:after="${isBig ? "60" : "30"}" w:line="240" w:lineRule="auto"/>
                 </w:pPr>
-                ${runsXml}
+                <w:r>
+                  <w:rPr>
+                    <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                    <w:b/>
+                    <w:sz w:val="${szVal}"/>
+                    <w:color w:val="FFFFFF"/>
+                  </w:rPr>
+                  <w:t xml:space="preserve">${escapeXml(l.fullText)}</w:t>
+                </w:r>
               </w:p>
             `;
           })
           .join("");
-      };
 
-      const leftXml = renderCellLines(bannerLeftLines, false);
-      const rightXml = renderCellLines(bannerRightLines, true);
+        const rightCellXml = rightLines
+          .map((l) => {
+            const szVal = Math.max(16, Math.round(l.fontSize * 2));
+            return `
+              <w:p>
+                <w:pPr>
+                  <w:jc w:val="right"/>
+                  <w:spacing w:before="0" w:after="30" w:line="240" w:lineRule="auto"/>
+                </w:pPr>
+                <w:r>
+                  <w:rPr>
+                    <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                    <w:sz w:val="${szVal}"/>
+                    <w:color w:val="FFFFFF"/>
+                  </w:rPr>
+                  <w:t xml:space="preserve">${escapeXml(l.fullText)}</w:t>
+                </w:r>
+              </w:p>
+            `;
+          })
+          .join("");
 
-      const bannerTableXml = `
-        <w:tbl>
-          <w:tblPr>
-            <w:tblW w:w="5000" w:type="pct"/>
-            <w:tblBorders>
-              <w:top w:val="none"/>
-              <w:left w:val="none"/>
-              <w:bottom w:val="none"/>
-              <w:right w:val="none"/>
-              <w:insideH w:val="none"/>
-              <w:insideV w:val="none"/>
-            </w:tblBorders>
-            <w:tblCellMar>
-              <w:top w:w="300" w:type="dxa"/>
-              <w:left w:w="360" w:type="dxa"/>
-              <w:bottom w:w="300" w:type="dxa"/>
-              <w:right w:w="360" w:type="dxa"/>
-            </w:tblCellMar>
-          </w:tblPr>
-          <w:tr>
-            <w:tc>
-              <w:tcPr>
-                <w:tcW w:w="3000" w:type="pct"/>
-                <w:shd w:val="clear" w:color="auto" w:fill="1E4638"/>
-                <w:vAlign w:val="center"/>
-              </w:tcPr>
-              ${leftXml || "<w:p/>"}
-            </w:tc>
-            <w:tc>
-              <w:tcPr>
-                <w:tcW w:w="2000" w:type="pct"/>
-                <w:shd w:val="clear" w:color="auto" w:fill="1E4638"/>
-                <w:vAlign w:val="center"/>
-              </w:tcPr>
-              ${rightXml || "<w:p/>"}
-            </w:tc>
-          </w:tr>
-        </w:tbl>
-        <w:p><w:pPr><w:spacing w:before="0" w:after="180"/></w:pPr></w:p>
-      `;
-
-      bodyElementsXml.push(bannerTableXml);
+        bodyElementsXml.push(`
+          <w:tbl>
+            <w:tblPr>
+              <w:tblW w:w="5000" w:type="pct"/>
+              <w:tblBorders>
+                <w:top w:val="none"/>
+                <w:left w:val="none"/>
+                <w:bottom w:val="none"/>
+                <w:right w:val="none"/>
+                <w:insideH w:val="none"/>
+                <w:insideV w:val="none"/>
+              </w:tblBorders>
+              <w:tblCellMar>
+                <w:top w:w="300" w:type="dxa"/>
+                <w:left w:w="360" w:type="dxa"/>
+                <w:bottom w:w="300" w:type="dxa"/>
+                <w:right w:w="360" w:type="dxa"/>
+              </w:tblCellMar>
+            </w:tblPr>
+            <w:tr>
+              <w:tc>
+                <w:tcPr>
+                  <w:tcW w:w="3000" w:type="pct"/>
+                  <w:shd w:val="clear" w:color="auto" w:fill="1E4638"/>
+                  <w:vAlign w:val="center"/>
+                </w:tcPr>
+                ${leftCellXml || "<w:p/>"}
+              </w:tc>
+              <w:tc>
+                <w:tcPr>
+                  <w:tcW w:w="2000" w:type="pct"/>
+                  <w:shd w:val="clear" w:color="auto" w:fill="1E4638"/>
+                  <w:vAlign w:val="center"/>
+                </w:tcPr>
+                ${rightCellXml || "<w:p/>"}
+              </w:tc>
+            </w:tr>
+          </w:tbl>
+          <w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr></w:p>
+        `);
+      }
     }
 
-    type ParagraphGroup = {
-      isHeading: boolean;
-      isBullet: boolean;
-      align: string;
-      lines: Line[];
-    };
+    // 2. Body items: exclude header on p1 (y >= 745) and footer (y <= 35)
+    const bodyFrags = rawFragments.filter(
+      (it) => it.y > 35 && !(pageNum === 1 && it.y >= 745)
+    );
+    const lines = groupFragmentsIntoLines(bodyFrags);
 
-    const paragraphs: ParagraphGroup[] = [];
-    let currentPara: ParagraphGroup | null = null;
-
-    for (let lIdx = startBodyLineIdx; lIdx < lines.length; lIdx++) {
+    // 3. Process lines: Headings, Tables, Bullets, Paragraphs
+    let lIdx = 0;
+    while (lIdx < lines.length) {
       const line = lines[lIdx];
       const text = line.fullText.trim();
-      if (!text) continue;
 
-      const isHeadingNum = /^\d+\.\s+[A-Z\s&]{3,}/.test(text);
-      const isBullet = text.startsWith("•") || text.startsWith("-") || text.startsWith("*");
-
-      const lineCenterX = (line.minX + line.maxX) / 2;
-      const pageCenterX = pageWidth / 2;
-      let align = "left";
-      if (Math.abs(lineCenterX - pageCenterX) < 50 && text.length < 80) {
-        align = "center";
-      } else if (line.minX > pageWidth * 0.65) {
-        align = "right";
-      }
-
-      if (isHeadingNum) {
-        currentPara = { isHeading: true, isBullet: false, align: "left", lines: [line] };
-        paragraphs.push(currentPara);
-        currentPara = null;
-        continue;
-      }
-
-      if (isBullet) {
-        currentPara = { isHeading: false, isBullet: true, align, lines: [line] };
-        paragraphs.push(currentPara);
-        continue;
-      }
-
-      if (currentPara && !currentPara.isHeading && !currentPara.isBullet) {
-        const lastLine = currentPara.lines[currentPara.lines.length - 1];
-        const yDiff = lastLine.y - line.y;
-        const fontMatch = Math.abs(lastLine.fontSize - line.fontSize) <= 2;
-        const xMatch = Math.abs(lastLine.minX - line.minX) < 40;
-
-        if (yDiff > 0 && yDiff <= line.fontSize * 1.8 && fontMatch && xMatch) {
-          currentPara.lines.push(line);
-          continue;
-        }
-      }
-
-      currentPara = { isHeading: false, isBullet: false, align, lines: [line] };
-      paragraphs.push(currentPara);
-    }
-
-    for (const para of paragraphs) {
-      if (para.isHeading) {
-        const line = para.lines[0];
-        const runsXml = renderFragmentsToRuns(line.fragments, "1E4638", true);
+      // Heading Section
+      const isHeading = /^\d+(\.\d+)*\.\s+[A-Z\s&]{3,}/.test(text);
+      if (isHeading) {
         bodyElementsXml.push(`
           <w:p>
             <w:pPr>
@@ -302,36 +216,112 @@ export async function convertPdfToWord(
               </w:pBdr>
               <w:spacing w:before="240" w:after="120"/>
             </w:pPr>
-            ${runsXml}
+            <w:r>
+              <w:rPr>
+                <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                <w:b/>
+                <w:sz w:val="26"/>
+                <w:color w:val="1E4638"/>
+              </w:rPr>
+              <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+            </w:r>
           </w:p>
         `);
+        lIdx++;
         continue;
       }
 
-      const paraFragments: Fragment[] = [];
-      for (let lIdx = 0; lIdx < para.lines.length; lIdx++) {
-        const line = para.lines[lIdx];
-        if (lIdx > 0 && paraFragments.length > 0) {
-          const lastFrag = paraFragments[paraFragments.length - 1];
-          if (!lastFrag.str.endsWith(" ")) {
-            paraFragments.push({
-              ...lastFrag,
-              str: " ",
-            });
+      // Table Header detection
+      const isTableHeader = /^(as-is process|field name|priority|column name)\b/i.test(text);
+      if (isTableHeader) {
+        const tableLines = [line];
+        lIdx++;
+        while (lIdx < lines.length) {
+          const nextLine = lines[lIdx];
+          const nextText = nextLine.fullText.trim();
+          if (/^\d+(\.\d+)*\.\s+[A-Z\s&]{3,}/.test(nextText)) break;
+          // Check if paragraph text outside table
+          if (
+            nextLine.minX < 38 &&
+            nextLine.maxX > 500 &&
+            !/^(column name|field name|priority|p0|p1|p2|id|client_name|staff)/i.test(nextText)
+          ) {
+            break;
           }
+          tableLines.push(nextLine);
+          lIdx++;
         }
-        paraFragments.push(...line.fragments);
+
+        const tableXml = buildTableXml(tableLines);
+        bodyElementsXml.push(tableXml);
+        continue;
       }
 
-      const alignXml = para.align !== "left" ? `<w:jc w:val="${para.align}"/>` : "";
-      const indentXml = para.isBullet ? `<w:ind w:left="360"/>` : "";
-      const runsXml = renderFragmentsToRuns(paraFragments, "1E293B");
+      // Bullet items
+      const isBullet =
+        text.startsWith("•") ||
+        text.startsWith("-") ||
+        text.startsWith("*") ||
+        text.startsWith("◦");
+      if (isBullet) {
+        const cleanText = text.replace(/^[•\-*◦]\s*/, "");
+        const indent = text.startsWith("◦") ? "720" : "360";
+        bodyElementsXml.push(`
+          <w:p>
+            <w:pPr>
+              <w:ind w:left="${indent}"/>
+              <w:spacing w:before="0" w:after="80" w:line="240" w:lineRule="auto"/>
+            </w:pPr>
+            <w:r>
+              <w:rPr>
+                <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                <w:sz w:val="20"/>
+                <w:color w:val="1E293B"/>
+              </w:rPr>
+              <w:t xml:space="preserve">• ${escapeXml(cleanText)}</w:t>
+            </w:r>
+          </w:p>
+        `);
+        lIdx++;
+        continue;
+      }
 
+      // Normal paragraph (merge contiguous lines)
+      const paraLines = [line];
+      lIdx++;
+      while (lIdx < lines.length) {
+        const nextLine = lines[lIdx];
+        const nextText = nextLine.fullText.trim();
+        if (/^\d+(\.\d+)*\.\s+[A-Z\s&]{3,}/.test(nextText)) break;
+        if (/^(as-is process|field name|priority|column name)\b/i.test(nextText)) break;
+        if (
+          nextText.startsWith("•") ||
+          nextText.startsWith("-") ||
+          nextText.startsWith("*") ||
+          nextText.startsWith("◦")
+        )
+          break;
+        if (paraLines[paraLines.length - 1].y - nextLine.y > line.fontSize * 1.8) break;
+
+        paraLines.push(nextLine);
+        lIdx++;
+      }
+
+      const paraFrags: Fragment[] = [];
+      paraLines.forEach((pl, idx) => {
+        if (idx > 0 && paraFrags.length > 0) {
+          const last = paraFrags[paraFrags.length - 1];
+          if (!last.str.endsWith(" ")) {
+            paraFrags.push({ ...last, str: " " });
+          }
+        }
+        paraFrags.push(...pl.items);
+      });
+
+      const runsXml = renderFragsToRuns(paraFrags, "1E293B");
       bodyElementsXml.push(`
         <w:p>
           <w:pPr>
-            ${alignXml}
-            ${indentXml}
             <w:spacing w:before="0" w:after="120" w:line="280" w:lineRule="auto"/>
           </w:pPr>
           ${runsXml}
@@ -340,13 +330,7 @@ export async function convertPdfToWord(
     }
 
     if (pageNum < total) {
-      bodyElementsXml.push(`
-        <w:p>
-          <w:r>
-            <w:br w:type="page"/>
-          </w:r>
-        </w:p>
-      `);
+      bodyElementsXml.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
     }
 
     onProgress?.(pageNum, total);
@@ -354,24 +338,78 @@ export async function convertPdfToWord(
 
   await doc.cleanup();
 
-  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  // 1. [Content_Types].xml
+  zip.file(
+    "[Content_Types].xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`;
-  zip.file("[Content_Types].xml", contentTypesXml);
+  <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>
+</Types>`
+  );
 
-  const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  // 2. _rels/.rels
+  _relsFolder?.file(
+    ".rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`;
-  _relsFolder?.file(".rels", rootRelsXml);
+</Relationships>`
+  );
 
-  const docRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`;
-  wordRelsFolder?.file("document.xml.rels", docRelsXml);
+  // 3. word/_rels/document.xml.rels
+  wordRelsFolder?.file(
+    "document.xml.rels",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdFooter1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>
+</Relationships>`
+  );
 
+  // 4. word/footer1.xml
+  wordFolder?.file(
+    "footer1.xml",
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:p>
+    <w:pPr>
+      <w:tabs><w:tab w:val="right" w:pos="10080"/></w:tabs>
+      <w:spacing w:before="0" w:after="0"/>
+    </w:pPr>
+    <w:r>
+      <w:rPr>
+        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+        <w:sz w:val="16"/>
+        <w:color w:val="94A3B8"/>
+      </w:rPr>
+      <w:t>The Highland Park Resort - Inquiry Management System</w:t>
+    </w:r>
+    <w:r><w:tab/></w:r>
+    <w:r>
+      <w:rPr>
+        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+        <w:sz w:val="16"/>
+        <w:color w:val="94A3B8"/>
+      </w:rPr>
+      <w:t>Halaman </w:t>
+    </w:r>
+    <w:fldSimple w:instr="PAGE"/>
+    <w:r>
+      <w:rPr>
+        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+        <w:sz w:val="16"/>
+        <w:color w:val="94A3B8"/>
+      </w:rPr>
+      <w:t> dari </w:t>
+    </w:r>
+    <w:fldSimple w:instr="NUMPAGES"/>
+  </w:p>
+</w:ftr>`
+  );
+
+  // 5. word/document.xml
   const widthTwips = Math.round(firstPageWidthPt * 20);
   const heightTwips = Math.round(firstPageHeightPt * 20);
 
@@ -381,8 +419,9 @@ export async function convertPdfToWord(
   <w:body>
     ${bodyElementsXml.join("\n")}
     <w:sectPr>
+      <w:footerReference w:type="default" r:id="rIdFooter1"/>
       <w:pgSz w:w="${widthTwips}" w:h="${heightTwips}"/>
-      <w:pgMar w:top="1152" w:right="1152" w:bottom="1152" w:left="1152" w:header="720" w:footer="720" w:gutter="0"/>
+      <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/>
     </w:sectPr>
   </w:body>
 </w:document>`;
@@ -394,79 +433,191 @@ export async function convertPdfToWord(
   });
 }
 
-function renderFragmentsToRuns(
-  fragments: any[],
-  defaultColor: string = "1E293B",
-  forceBold: boolean = false
-): string {
-  if (fragments.length === 0) return "";
-
-  type RunGroup = {
-    text: string;
-    fontSize: number;
-    isBold: boolean;
-    isItalic: boolean;
-  };
-
-  const groups: RunGroup[] = [];
-
-  for (let i = 0; i < fragments.length; i++) {
-    const frag = fragments[i];
-    const prevFrag = fragments[i - 1];
-
-    let addLeadingSpace = false;
-    if (prevFrag) {
-      const gap = frag.x - (prevFrag.x + prevFrag.width);
-      if (gap > 2.0 && !prevFrag.str.endsWith(" ") && !frag.str.startsWith(" ")) {
-        addLeadingSpace = true;
-      }
-    }
-
-    const currentText = (addLeadingSpace ? " " : "") + frag.str;
-    const isBold = forceBold || frag.isBold;
-
-    const lastGroup = groups[groups.length - 1];
-    if (
-      lastGroup &&
-      lastGroup.isBold === isBold &&
-      lastGroup.isItalic === frag.isItalic &&
-      lastGroup.fontSize === frag.fontSize
-    ) {
-      lastGroup.text += currentText;
-    } else {
-      groups.push({
-        text: currentText,
+function groupFragmentsIntoLines(fragments: Fragment[]): Line[] {
+  const lines: Line[] = [];
+  fragments.forEach((frag) => {
+    let l = lines.find(
+      (line) => Math.abs(line.y - frag.y) <= Math.max(3, frag.fontSize * 0.35)
+    );
+    if (!l) {
+      l = {
+        y: frag.y,
         fontSize: frag.fontSize,
-        isBold,
-        isItalic: frag.isItalic,
-      });
+        minX: frag.x,
+        maxX: frag.x + frag.width,
+        items: [],
+        fullText: "",
+      };
+      lines.push(l);
     }
+    l.items.push(frag);
+    l.minX = Math.min(l.minX, frag.x);
+    l.maxX = Math.max(l.maxX, frag.x + frag.width);
+    l.fontSize = Math.max(l.fontSize, frag.fontSize);
+  });
+  lines.sort((a, b) => b.y - a.y);
+  lines.forEach((l) => {
+    l.items.sort((a, b) => a.x - b.x);
+    l.fullText = l.items.map((it) => it.str).join(" ").replace(/\s+/g, " ");
+  });
+  return lines;
+}
+
+function buildTableXml(tableLines: Line[]): string {
+  const headerLine = tableLines[0];
+  const headerItems = headerLine.items;
+
+  const colCuts: number[] = [];
+  for (let i = 0; i < headerItems.length - 1; i++) {
+    const itA = headerItems[i];
+    const itB = headerItems[i + 1];
+    colCuts.push((itA.x + itA.width + itB.x) / 2);
   }
 
-  return groups
-    .map((g) => {
-      const szHalfPt = Math.round(Math.min(36, Math.max(9, g.fontSize)) * 2);
-      const boldXml = g.isBold ? "<w:b/>" : "";
-      const italicXml = g.isItalic ? "<w:i/>" : "";
+  const numCols = headerItems.length > 1 ? headerItems.length : 3;
 
-      return `
-        <w:r>
-          <w:rPr>
-            <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-            ${boldXml}
-            ${italicXml}
-            <w:sz w:val="${szHalfPt}"/>
-            <w:color w:val="${defaultColor}"/>
-          </w:rPr>
-          <w:t xml:space="preserve">${escapeXml(g.text)}</w:t>
-        </w:r>
-      `;
+  type TableRowData = {
+    startY: number;
+    cells: Fragment[][];
+  };
+
+  const rows: TableRowData[] = [];
+  let currentRow: TableRowData | null = null;
+
+  tableLines.forEach((l, idx) => {
+    const col0Items = l.items.filter(
+      (it) => colCuts.length === 0 || it.x < colCuts[0]
+    );
+    const isNewRow =
+      idx === 0 ||
+      (col0Items.length > 0 &&
+        currentRow &&
+        Math.abs(currentRow.startY - l.y) > 10);
+
+    if (isNewRow) {
+      currentRow = {
+        startY: l.y,
+        cells: Array.from({ length: numCols }, () => []),
+      };
+      rows.push(currentRow);
+    }
+
+    l.items.forEach((it) => {
+      let colIdx = 0;
+      for (let c = 0; c < colCuts.length; c++) {
+        if (it.x >= colCuts[c]) colIdx = c + 1;
+      }
+      if (colIdx >= numCols) colIdx = numCols - 1;
+      currentRow?.cells[colIdx].push(it);
+    });
+  });
+
+  const pctPerCol = Math.round(5000 / numCols);
+  const rowsXml = rows
+    .map((r, rIdx) => {
+      const isHeader = rIdx === 0;
+      const cellsXml = r.cells
+        .map((cellFrags) => {
+          const cellText = cellFrags
+            .map((f) => f.str)
+            .join(" ")
+            .replace(/\s+/g, " ");
+          const shdXml = isHeader
+            ? '<w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/>'
+            : "";
+          const bXml = isHeader ? "<w:b/>" : "";
+
+          return `
+            <w:tc>
+              <w:tcPr>
+                <w:tcW w:w="${pctPerCol}" w:type="pct"/>
+                ${shdXml}
+                <w:vAlign w:val="center"/>
+              </w:tcPr>
+              <w:p>
+                <w:pPr><w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/></w:pPr>
+                <w:r>
+                  <w:rPr>
+                    <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                    ${bXml}
+                    <w:sz w:val="18"/>
+                    <w:color w:val="1E293B"/>
+                  </w:rPr>
+                  <w:t xml:space="preserve">${escapeXml(cellText)}</w:t>
+                </w:r>
+              </w:p>
+            </w:tc>
+          `;
+        })
+        .join("");
+
+      return `<w:tr>${cellsXml}</w:tr>`;
+    })
+    .join("\n");
+
+  return `
+    <w:tbl>
+      <w:tblPr>
+        <w:tblW w:w="5000" w:type="pct"/>
+        <w:tblBorders>
+          <w:top w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+          <w:bottom w:val="single" w:sz="6" w:space="0" w:color="CBD5E1"/>
+          <w:insideH w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
+          <w:insideV w:val="none"/>
+          <w:left w:val="none"/>
+          <w:right w:val="none"/>
+        </w:tblBorders>
+        <w:tblCellMar>
+          <w:top w:w="100" w:type="dxa"/>
+          <w:left w:w="140" w:type="dxa"/>
+          <w:bottom w:w="100" w:type="dxa"/>
+          <w:right w:w="140" w:type="dxa"/>
+        </w:tblCellMar>
+      </w:tblPr>
+      ${rowsXml}
+    </w:tbl>
+    <w:p><w:pPr><w:spacing w:before="0" w:after="160"/></w:pPr></w:p>
+  `;
+}
+
+function renderFragsToRuns(fragments: Fragment[], defaultColor: string): string {
+  if (!fragments || fragments.length === 0) return "";
+  return fragments
+    .map((f, i) => {
+      const prev = fragments[i - 1];
+      let space = "";
+      if (
+        prev &&
+        f.x - (prev.x + prev.width) > 2 &&
+        !prev.str.endsWith(" ") &&
+        !f.str.startsWith(" ")
+      ) {
+        space = " ";
+      }
+      const bXml = f.isBold ? "<w:b/>" : "";
+      const iXml = f.isItalic ? "<w:i/>" : "";
+      const szVal = Math.round(Math.min(36, Math.max(9, f.fontSize)) * 2);
+      return (
+        '<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>' +
+        bXml +
+        iXml +
+        '<w:sz w:val="' +
+        szVal +
+        '"/>' +
+        '<w:color w:val="' +
+        defaultColor +
+        '"/>' +
+        '</w:rPr><w:t xml:space="preserve">' +
+        space +
+        escapeXml(f.str) +
+        "</w:t></w:r>"
+      );
     })
     .join("");
 }
 
 function escapeXml(str: string): string {
-  return str
+  return (str || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
