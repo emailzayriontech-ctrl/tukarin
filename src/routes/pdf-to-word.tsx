@@ -5,10 +5,11 @@ import { FileDropzone } from "@/components/tools/FileDropzone";
 import { ResultPanel } from "@/components/tools/ResultPanel";
 import { Button } from "@/components/ui/button";
 import { TOOLS } from "@/lib/tools/registry";
-import { convertPdfToWord } from "@/lib/tools/pdfToWord";
+import { convertPdfToWord, type ConversionMode } from "@/lib/tools/pdfToWord";
 import { downloadBlob } from "@/lib/downloadHelpers";
 import { formatBytes } from "@/lib/formatBytes";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const TOOL = TOOLS.find((t) => t.slug === "pdf-to-word")!;
 
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/pdf-to-word")({
 
 function Page() {
   const [file, setFile] = useState<File | null>(null);
+  const [mode, setMode] = useState<ConversionMode>("exact");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [result, setResult] = useState<Blob | null>(null);
@@ -43,7 +45,7 @@ function Page() {
     setBusy(true);
     setError(null);
     try {
-      const res = await convertPdfToWord(file, (done, total) => {
+      const res = await convertPdfToWord(file, mode, (done, total) => {
         setProgress({ done, total });
       });
       setResult(res);
@@ -85,8 +87,47 @@ function Page() {
               </Button>
             </div>
             
-            <div className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
-              💡 <strong>Informasi:</strong> Dokumen PDF akan dikonversi menjadi dokumen Word (.docx) dengan presisi tata letak 1:1, mempertahankan seluruh banner hijau, teks, header, tabel, dan format visual asli PDF.
+            <div className="space-y-2 pt-2 border-t border-border">
+              <label className="text-xs font-semibold text-foreground">Pilih Mode Konversi:</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMode("exact")}
+                  className={cn(
+                    "flex flex-col text-left p-3.5 rounded-xl border transition-all cursor-pointer",
+                    mode === "exact"
+                      ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary shadow-xs"
+                      : "border-border hover:border-muted-foreground/40 bg-card text-muted-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-2 font-medium text-sm text-foreground mb-1">
+                    <Sparkles className="h-4 w-4 text-emerald-600" />
+                    <span>Presisi 100% (Identik Asli)</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Menjaga bentuk asli PDF 1:1, tata letak, banner hijau, border tabel, dan logo persis sama tanpa ada posisi yang bergeser.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMode("editable")}
+                  className={cn(
+                    "flex flex-col text-left p-3.5 rounded-xl border transition-all cursor-pointer",
+                    mode === "editable"
+                      ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary shadow-xs"
+                      : "border-border hover:border-muted-foreground/40 bg-card text-muted-foreground"
+                  )}
+                >
+                  <div className="flex items-center gap-2 font-medium text-sm text-foreground mb-1">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <span>Teks & Tabel Dapat Diedit</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Teks, judul, dan tabel diekstrak ke dalam elemen dokumen Word asli yang dapat diketik ulang dan diedit bebas.
+                  </p>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -120,7 +161,7 @@ function Page() {
         <ResultPanel
           originalSize={file.size}
           totalSize={result.size}
-          description="Konversi PDF ke dokumen Word (.docx) selesai!"
+          description={`Konversi PDF ke dokumen Word (.docx) selesai dengan mode ${mode === "exact" ? "Presisi 100% (Identik Asli)" : "Teks & Tabel Dapat Diedit"}!`}
           onDownload={() => {
             const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
             downloadBlob(result, `${baseName}.docx`);
