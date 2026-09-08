@@ -14,12 +14,13 @@ export async function convertPdfToWord(
 
   for (let i = 1; i <= total; i++) {
     const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale: 2.0 }); // High DPI for crisp text & graphics
 
     let pageHtml = "";
 
     if (mode === "visual") {
-      // High-Fidelity Visual Mode: Preserve all green headers, tables, colors, backgrounds, and layout 100%
+      // Visual 1:1 Mode: Use scale 1.0 and 70% JPEG quality so data URI is <100KB.
+      // This prevents MS Word from dropping large data URIs (>500KB) which causes blank white pages.
+      const viewport = page.getViewport({ scale: 1.0 });
       const canvas = document.createElement("canvas");
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
@@ -27,15 +28,18 @@ export async function convertPdfToWord(
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-      const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      
+      // Compress to 0.70 JPEG to fit MS Word attribute limit
+      const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.70);
 
       pageHtml = `
         <div style="text-align:center; margin-bottom:0pt;">
-          <img src="${pageImageDataUrl}" style="width:100%; max-width:8.5in; height:auto;" alt="Halaman ${i}" />
+          <img src="${pageImageDataUrl}" style="width:100%; max-width:6.5in; height:auto;" alt="Halaman ${i}" />
         </div>
       `;
     } else {
-      // Text Extraction Mode: Extract text items
+      // Text & Layout Mode: Extract text items and structure with MSO styles
+      const viewport = page.getViewport({ scale: 1.2 });
       const textContent = await page.getTextContent();
       const items = (textContent.items as any[]).filter(
         (item) => typeof item.str === "string" && item.str.trim().length > 0
@@ -49,7 +53,7 @@ export async function convertPdfToWord(
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-        const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.90);
+        const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.70);
 
         pageHtml = `
           <div style="text-align:center; margin-bottom:12pt;">
