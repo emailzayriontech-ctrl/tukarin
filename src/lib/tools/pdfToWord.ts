@@ -14,112 +14,111 @@ export async function convertPdfToWord(
   for (let i = 1; i <= total; i++) {
     const page = await doc.getPage(i);
     const viewport = page.getViewport({ scale: 1.2 });
-
-    // 1. Render page to canvas to capture images, graphics, diagrams, and signatures
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-    const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.85);
-
-    // 2. Extract and structure text items
     const textContent = await page.getTextContent();
     const items = (textContent.items as any[]).filter(
       (item) => typeof item.str === "string" && item.str.trim().length > 0
     );
 
-    // Group items into lines based on Y-coordinate (transform[5])
-    type TextLine = {
-      y: number;
-      fontSize: number;
-      isBold: boolean;
-      isItalic: boolean;
-      items: any[];
-      minX: number;
-      maxX: number;
-    };
-
-    const lines: TextLine[] = [];
-
-    for (const item of items) {
-      const x = item.transform[4];
-      const y = item.transform[5];
-      const fontSize = Math.round(
-        Math.hypot(item.transform[0], item.transform[1]) || item.height || 11
-      );
-      const fontName = (item.fontName || "").toLowerCase();
-      const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
-      const isItalic = fontName.includes("italic") || fontName.includes("oblique");
-
-      let line = lines.find((l) => Math.abs(l.y - y) <= Math.max(4, fontSize * 0.4));
-      if (!line) {
-        line = {
-          y,
-          fontSize,
-          isBold,
-          isItalic,
-          items: [],
-          minX: x,
-          maxX: x + (item.width || 0),
-        };
-        lines.push(line);
-      }
-
-      line.items.push(item);
-      line.minX = Math.min(line.minX, x);
-      line.maxX = Math.max(line.maxX, x + (item.width || 0));
-    }
-
-    // Sort lines top-to-bottom (Y desc)
-    lines.sort((a, b) => b.y - a.y);
-
     let pageHtml = "";
-    const pageWidth = viewport.width;
 
-    for (let lIdx = 0; lIdx < lines.length; lIdx++) {
-      const line = lines[lIdx];
+    if (items.length === 0) {
+      // Scanned / Image-based PDF page: render image directly in Word document
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+      const pageImageDataUrl = canvas.toDataURL("image/jpeg", 0.90);
 
-      // Sort items in line left-to-right (X asc)
-      line.items.sort((a, b) => a.transform[4] - b.transform[4]);
-      
-      const lineText = line.items.map((it) => it.str).join(" ").replace(/\s+/g, " ");
+      pageHtml = `
+        <div style="text-align:center; margin-bottom:12pt;">
+          <img src="${pageImageDataUrl}" style="max-width:100%; height:auto;" alt="Halaman ${i}" />
+        </div>
+      `;
+    } else {
+      // Text-based page: extract lines, font size, bold/italic, and alignment
+      type TextLine = {
+        y: number;
+        fontSize: number;
+        isBold: boolean;
+        isItalic: boolean;
+        items: any[];
+        minX: number;
+        maxX: number;
+      };
 
-      // Determine alignment
-      const lineCenterX = (line.minX + line.maxX) / 2;
-      const pageCenterX = pageWidth / 2;
-      let align = "left";
-      if (Math.abs(lineCenterX - pageCenterX) < 60 && lineText.length < 80) {
-        align = "center";
-      } else if (line.minX > pageWidth * 0.6) {
-        align = "right";
+      const lines: TextLine[] = [];
+
+      for (const item of items) {
+        const x = item.transform[4];
+        const y = item.transform[5];
+        const fontSize = Math.round(
+          Math.hypot(item.transform[0], item.transform[1]) || item.height || 11
+        );
+        const fontName = (item.fontName || "").toLowerCase();
+        const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
+        const isItalic = fontName.includes("italic") || fontName.includes("oblique");
+
+        let line = lines.find((l) => Math.abs(l.y - y) <= Math.max(4, fontSize * 0.4));
+        if (!line) {
+          line = {
+            y,
+            fontSize,
+            isBold,
+            isItalic,
+            items: [],
+            minX: x,
+            maxX: x + (item.width || 0),
+          };
+          lines.push(line);
+        }
+
+        line.items.push(item);
+        line.minX = Math.min(line.minX, x);
+        line.maxX = Math.max(line.maxX, x + (item.width || 0));
       }
 
-      // Determine styling
-      const styleParts: string[] = [];
-      styleParts.push(`font-size:${Math.min(36, Math.max(9, line.fontSize))}pt`);
-      if (line.isBold) styleParts.push("font-weight:bold");
-      if (line.isItalic) styleParts.push("font-style:italic");
-      if (align !== "left") styleParts.push(`text-align:${align}`);
-      styleParts.push("margin-top:0pt;margin-bottom:6pt;line-height:1.2;");
+      // Sort lines top-to-bottom (Y desc)
+      lines.sort((a, b) => b.y - a.y);
 
-      pageHtml += `<p style="${styleParts.join(";")}">${escapeHtml(lineText)}</p>`;
+      const pageWidth = viewport.width;
+
+      for (let lIdx = 0; lIdx < lines.length; lIdx++) {
+        const line = lines[lIdx];
+
+        // Sort items in line left-to-right (X asc)
+        line.items.sort((a, b) => a.transform[4] - b.transform[4]);
+        
+        const lineText = line.items.map((it) => it.str).join(" ").replace(/\s+/g, " ");
+
+        // Determine alignment
+        const lineCenterX = (line.minX + line.maxX) / 2;
+        const pageCenterX = pageWidth / 2;
+        let align = "left";
+        if (Math.abs(lineCenterX - pageCenterX) < 60 && lineText.length < 80) {
+          align = "center";
+        } else if (line.minX > pageWidth * 0.65) {
+          align = "right";
+        }
+
+        // Determine styling
+        const styleParts: string[] = [];
+        styleParts.push(`font-size:${Math.min(36, Math.max(9, line.fontSize))}pt`);
+        if (line.isBold) styleParts.push("font-weight:bold");
+        if (line.isItalic) styleParts.push("font-style:italic");
+        if (align !== "left") styleParts.push(`text-align:${align}`);
+        styleParts.push("margin-top:0pt;margin-bottom:6pt;line-height:1.15;");
+
+        pageHtml += `<p style="${styleParts.join(";")}">${escapeHtml(lineText)}</p>`;
+      }
     }
 
-    // Combine page visual image + formatted editable text into HTML section
+    // Add page section with Word page break
     htmlContent += `
-      <div style="margin-bottom:24pt; ${i < total ? 'page-break-after:always;' : ''}">
-        <div style="text-align:center; margin-bottom:14pt;">
-          <img src="${pageImageDataUrl}" style="max-width:100%; height:auto; border:1px solid #e2e8f0; border-radius:4px;" alt="Halaman ${i}" />
-        </div>
-        <div style="background-color:#f8fafc; padding:12pt; border-radius:6px; border:1px solid #e2e8f0;">
-          <div style="font-size:9pt; font-weight:bold; color:#64748b; margin-bottom:8pt; text-transform:uppercase; letter-spacing:0.5px;">
-            Teks Dokumen Halaman ${i} (Dapat Diedit):
-          </div>
-          ${pageHtml}
-        </div>
+      <div style="${i > 1 ? 'page-break-before:always; mso-break-type:section-break;' : ''} margin-bottom:12pt;">
+        ${pageHtml}
       </div>
     `;
 
@@ -143,12 +142,20 @@ export async function convertPdfToWord(
       </xml>
       <![endif]-->
       <style>
+        @page Section1 {
+          size: 8.5in 11.0in;
+          margin: 1.0in 1.0in 1.0in 1.0in;
+          mso-header-margin: 0.5in;
+          mso-footer-margin: 0.5in;
+        }
+        div.Section1 {
+          page: Section1;
+        }
         body {
-          font-family: 'Calibri', 'Arial', sans-serif;
+          font-family: 'Calibri', 'Arial', 'Times New Roman', sans-serif;
           font-size: 11pt;
           line-height: 1.15;
-          color: #1e293b;
-          margin: 0.5in;
+          color: #000000;
         }
         p {
           margin: 0in;

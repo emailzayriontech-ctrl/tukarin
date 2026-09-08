@@ -86,7 +86,7 @@ function Page() {
             </div>
             
             <div className="mt-4 text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
-              💡 <strong>Pembaruan Konverter:</strong> Konversi kini menjaga ukuran font, cetak tebal/miring, perataan paragraf (kiri/tengah/kanan), serta menyertakan gambaran visual lengkap dari halaman asli agar gambar, tabel, dan logo di PDF tidak hilang saat dibuka di Word.
+              💡 <strong>Informasi:</strong> Dokumen PDF akan dikonversi secara langsung menjadi dokumen Word (.doc) yang rapi, menjaga ukuran huruf, format cetak tebal/miring, dan perataan paragraf secara otomatis.
             </div>
           </div>
 
