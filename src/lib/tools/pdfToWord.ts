@@ -394,136 +394,319 @@ async function convertPdfToWordEditable(
     const bodyFrags = rawFragments.filter(
       (it) => it.y > 35 && !(pageNum === 1 && it.y >= 745)
     );
-    const lines = groupFragmentsIntoLines(bodyFrags);
 
-    // 3. Process lines: Headings, Tables, Bullets, Paragraphs
-    let lIdx = 0;
-    while (lIdx < lines.length) {
-      const line = lines[lIdx];
-      const text = line.fullText.trim();
+    // 3. Find table regions on the page
+    const tableHeaderTriggers = [
+      /^(as-is process|to-be process)/i,
+      /^field name\b/i,
+      /^priority\b/i,
+      /^column name\b/i,
+    ];
 
-      // Heading Section
-      const isHeading = /^\d+(\.\d+)*\.\s+[A-Z\s&]{3,}/.test(text);
-      if (isHeading) {
-        bodyElementsXml.push(`
-          <w:p>
-            <w:pPr>
-              <w:pBdr>
-                <w:left w:val="single" w:sz="24" w:space="12" w:color="1E4638"/>
-              </w:pBdr>
-              <w:spacing w:before="240" w:after="120"/>
-            </w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                <w:b/>
-                <w:sz w:val="26"/>
-                <w:color w:val="1E4638"/>
-              </w:rPr>
-              <w:t xml:space="preserve">${escapeXml(text)}</w:t>
-            </w:r>
-          </w:p>
-        `);
-        lIdx++;
+    bodyFrags.sort((a, b) => b.y - a.y || a.x - b.x);
+
+    const tableRanges: { topY: number; bottomY: number; headerAnchorY: number }[] = [];
+    for (let fIdx = 0; fIdx < bodyFrags.length; fIdx++) {
+      const f = bodyFrags[fIdx];
+      if (tableHeaderTriggers.some((rgx) => rgx.test(f.str.trim()))) {
+        const headerAnchorY = f.y;
+        if (tableRanges.some((tr) => Math.abs(tr.headerAnchorY - headerAnchorY) < 30)) {
+          continue;
+        }
+
+        let bottomY = 36;
+        for (const item of bodyFrags) {
+          if (item.y > headerAnchorY + 15) continue;
+          if (/^\d+(\.\d+)*\.?\s+[A-Za-z0-9\s&()—\-/]{3,}/.test(item.str.trim())) {
+            bottomY = item.y + 2;
+            break;
+          }
+          if (item.str.trim() === "•" || item.str.trim() === "◦") {
+            bottomY = item.y + 2;
+            break;
+          }
+          if (
+            item.x < 38 &&
+            item.width > 450 &&
+            !/^(column name|field name|priority|p0|p1|p2|id|client_name)/i.test(item.str.trim())
+          ) {
+            bottomY = item.y + 2;
+            break;
+          }
+          bottomY = Math.min(bottomY, item.y - 5);
+        }
+
+        tableRanges.push({
+          topY: headerAnchorY + 14,
+          bottomY,
+          headerAnchorY,
+        });
+      }
+    }
+
+    const processedTableIndices = new Set<number>();
+
+    let fIdx = 0;
+    while (fIdx < bodyFrags.length) {
+      const curFrag = bodyFrags[fIdx];
+
+      // Check if inside a table range
+      const matchedTableIdx = tableRanges.findIndex(
+        (tr, tIdx) =>
+          !processedTableIndices.has(tIdx) &&
+          curFrag.y <= tr.topY &&
+          curFrag.y >= tr.bottomY
+      );
+
+      if (matchedTableIdx !== -1) {
+        processedTableIndices.add(matchedTableIdx);
+        const tr = tableRanges[matchedTableIdx];
+        const tableFrags = bodyFrags.filter(
+          (it) => it.y <= tr.topY && it.y >= tr.bottomY
+        );
+
+        const tableXml = buildAdvancedTableXml(tableFrags, tr.headerAnchorY);
+        bodyElementsXml.push(tableXml);
+
+        while (fIdx < bodyFrags.length && bodyFrags[fIdx].y >= tr.bottomY) {
+          fIdx++;
+        }
         continue;
       }
 
-      // Table Header detection
-      const isTableHeader = /^(as-is process|field name|priority|column name)\b/i.test(text);
-      if (isTableHeader) {
-        const tableLines = [line];
-        lIdx++;
-        while (lIdx < lines.length) {
-          const nextLine = lines[lIdx];
-          const nextText = nextLine.fullText.trim();
-          if (/^\d+(\.\d+)*\.\s+[A-Z\s&]{3,}/.test(nextText)) break;
-          // Check if paragraph text outside table
-          if (
-            nextLine.minX < 38 &&
-            nextLine.maxX > 500 &&
-            !/^(column name|field name|priority|p0|p1|p2|id|client_name|staff)/i.test(nextText)
-          ) {
-            break;
+      // Collect contiguous non-table frags until next table range or page end
+      const nextTableRange = tableRanges.find(
+        (tr, tIdx) => !processedTableIndices.has(tIdx) && tr.topY <= curFrag.y
+      );
+      const chunkFrags: Fragment[] = [];
+      while (fIdx < bodyFrags.length) {
+        const item = bodyFrags[fIdx];
+        if (nextTableRange && item.y <= nextTableRange.topY) break;
+        chunkFrags.push(item);
+        fIdx++;
+      }
+
+      const chunkLines = groupFragmentsIntoLines(chunkFrags);
+      let lIdx = 0;
+      while (lIdx < chunkLines.length) {
+        const line = chunkLines[lIdx];
+        const text = line.fullText.trim();
+
+        // 1. Major Section Heading (e.g., 1. EXECUTIVE SUMMARY, 4. SYSTEM FEATURES...)
+        const isMajorHeading =
+          /^\d+\.\s+[A-Z0-9\s&()—\-/]{3,}/.test(text) &&
+          (line.fontSize >= 11 || text === text.toUpperCase());
+        if (isMajorHeading) {
+          bodyElementsXml.push(`
+            <w:p>
+              <w:pPr>
+                <w:pBdr>
+                  <w:left w:val="single" w:sz="24" w:space="12" w:color="1E4638"/>
+                </w:pBdr>
+                <w:spacing w:before="240" w:after="120"/>
+              </w:pPr>
+              <w:r>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                  <w:b/>
+                  <w:sz w:val="26"/>
+                  <w:color w:val="1E4638"/>
+                </w:rPr>
+                <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+              </w:r>
+            </w:p>
+          `);
+          lIdx++;
+          continue;
+        }
+
+        // 2. Sub-Heading (e.g., 4.1 Dashboard..., 4.2 Feature Backlog...)
+        const isSubHeading = /^\d+\.\d+(\.\d+)*\.?\s+[A-Za-z0-9\s&()—\-/]{3,}/.test(text);
+        if (isSubHeading) {
+          bodyElementsXml.push(`
+            <w:p>
+              <w:pPr>
+                <w:spacing w:before="180" w:after="80"/>
+              </w:pPr>
+              <w:r>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                  <w:b/>
+                  <w:sz w:val="22"/>
+                  <w:color w:val="1E4638"/>
+                </w:rPr>
+                <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+              </w:r>
+            </w:p>
+          `);
+          lIdx++;
+          continue;
+        }
+
+        // 3. Named Subsections (e.g. Target Users, Form Source Input Example:, Database Schema Draft...)
+        const isNamedSub =
+          line.items[0]?.isBold &&
+          (text.length < 50 ||
+            text.includes("Database Schema") ||
+            text.includes("Target Users") ||
+            text.includes("Input Example")) &&
+          !text.startsWith("•") &&
+          !text.startsWith("◦") &&
+          !/^\d+\./.test(text);
+        if (isNamedSub) {
+          bodyElementsXml.push(`
+            <w:p>
+              <w:pPr>
+                <w:spacing w:before="140" w:after="60"/>
+              </w:pPr>
+              <w:r>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                  <w:b/>
+                  <w:sz w:val="20"/>
+                  <w:color w:val="1E4638"/>
+                </w:rPr>
+                <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+              </w:r>
+            </w:p>
+          `);
+          lIdx++;
+          continue;
+        }
+
+        // 4. Numbered List items (e.g. 1. Nama : Inna, 2. Nama Company : GMF...)
+        const isNumberedItem = /^\d+\.\s+/.test(text);
+        if (isNumberedItem) {
+          bodyElementsXml.push(`
+            <w:p>
+              <w:pPr>
+                <w:ind w:left="360"/>
+                <w:spacing w:before="0" w:after="40" w:line="240" w:lineRule="auto"/>
+              </w:pPr>
+              <w:r>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                  <w:sz w:val="20"/>
+                  <w:color w:val="1E293B"/>
+                </w:rPr>
+                <w:t xml:space="preserve">${escapeXml(text)}</w:t>
+              </w:r>
+            </w:p>
+          `);
+          lIdx++;
+          continue;
+        }
+
+        // 5. Bullet items (with multi-line wrap continuation)
+        const isBullet =
+          text.startsWith("•") ||
+          text.startsWith("-") ||
+          text.startsWith("*") ||
+          text.startsWith("◦");
+        if (isBullet) {
+          const isSubBullet = text.startsWith("◦");
+          const indent = isSubBullet ? "720" : "360";
+          const bulletSymbol = isSubBullet ? "◦" : "•";
+
+          const bulletLines = [line];
+          lIdx++;
+          while (lIdx < chunkLines.length) {
+            const nextLine = chunkLines[lIdx];
+            const nextText = nextLine.fullText.trim();
+            if (/^\d+(\.\d+)*\.?\s+[A-Za-z0-9\s&()—\-/]{3,}/.test(nextText)) break;
+            if (
+              nextText.startsWith("•") ||
+              nextText.startsWith("-") ||
+              nextText.startsWith("*") ||
+              nextText.startsWith("◦")
+            )
+              break;
+            if (/^\d+\.\s+/.test(nextText)) break;
+            if (nextLine.items[0]?.isBold && nextText.length < 50) break;
+            if (bulletLines[bulletLines.length - 1].y - nextLine.y > line.fontSize * 1.8) break;
+
+            bulletLines.push(nextLine);
+            lIdx++;
           }
-          tableLines.push(nextLine);
+
+          const bulletFrags: Fragment[] = [];
+          bulletLines.forEach((bl, bIdx) => {
+            if (bIdx > 0 && bulletFrags.length > 0) {
+              const last = bulletFrags[bulletFrags.length - 1];
+              if (!last.str.endsWith(" ")) bulletFrags.push({ ...last, str: " " });
+            }
+            if (bIdx === 0) {
+              const cleaned = bl.items.filter((it) => !/^[•\-*◦]$/.test(it.str.trim()));
+              bulletFrags.push(...cleaned);
+            } else {
+              bulletFrags.push(...bl.items);
+            }
+          });
+
+          const runsXml = renderFragsToRuns(bulletFrags, "1E293B");
+          bodyElementsXml.push(`
+            <w:p>
+              <w:pPr>
+                <w:ind w:left="${indent}"/>
+                <w:spacing w:before="0" w:after="80" w:line="240" w:lineRule="auto"/>
+              </w:pPr>
+              <w:r>
+                <w:rPr>
+                  <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+                  <w:sz w:val="20"/>
+                  <w:color w:val="1E293B"/>
+                </w:rPr>
+                <w:t xml:space="preserve">${bulletSymbol} </w:t>
+              </w:r>
+              ${runsXml}
+            </w:p>
+          `);
+          continue;
+        }
+
+        // 6. Normal paragraph (merge contiguous lines)
+        const paraLines = [line];
+        lIdx++;
+        while (lIdx < chunkLines.length) {
+          const nextLine = chunkLines[lIdx];
+          const nextText = nextLine.fullText.trim();
+          if (/^\d+(\.\d+)*\.?\s+[A-Za-z0-9\s&()—\-/]{3,}/.test(nextText)) break;
+          if (
+            nextText.startsWith("•") ||
+            nextText.startsWith("-") ||
+            nextText.startsWith("*") ||
+            nextText.startsWith("◦")
+          )
+            break;
+          if (/^\d+\.\s+/.test(nextText)) break;
+          if (nextLine.items[0]?.isBold && nextText.length < 50) break;
+          if (paraLines[paraLines.length - 1].y - nextLine.y > line.fontSize * 1.8) break;
+
+          paraLines.push(nextLine);
           lIdx++;
         }
 
-        const tableXml = buildTableXml(tableLines);
-        bodyElementsXml.push(tableXml);
-        continue;
-      }
+        const paraFrags: Fragment[] = [];
+        paraLines.forEach((pl, idx) => {
+          if (idx > 0 && paraFrags.length > 0) {
+            const last = paraFrags[paraFrags.length - 1];
+            if (!last.str.endsWith(" ")) {
+              paraFrags.push({ ...last, str: " " });
+            }
+          }
+          paraFrags.push(...pl.items);
+        });
 
-      // Bullet items
-      const isBullet =
-        text.startsWith("•") ||
-        text.startsWith("-") ||
-        text.startsWith("*") ||
-        text.startsWith("◦");
-      if (isBullet) {
-        const cleanText = text.replace(/^[•\-*◦]\s*/, "");
-        const indent = text.startsWith("◦") ? "720" : "360";
+        const runsXml = renderFragsToRuns(paraFrags, "1E293B");
         bodyElementsXml.push(`
           <w:p>
             <w:pPr>
-              <w:ind w:left="${indent}"/>
-              <w:spacing w:before="0" w:after="80" w:line="240" w:lineRule="auto"/>
+              <w:spacing w:before="0" w:after="120" w:line="280" w:lineRule="auto"/>
             </w:pPr>
-            <w:r>
-              <w:rPr>
-                <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
-                <w:sz w:val="20"/>
-                <w:color w:val="1E293B"/>
-              </w:rPr>
-              <w:t xml:space="preserve">• ${escapeXml(cleanText)}</w:t>
-            </w:r>
+            ${runsXml}
           </w:p>
         `);
-        lIdx++;
-        continue;
       }
-
-      // Normal paragraph (merge contiguous lines)
-      const paraLines = [line];
-      lIdx++;
-      while (lIdx < lines.length) {
-        const nextLine = lines[lIdx];
-        const nextText = nextLine.fullText.trim();
-        if (/^\d+(\.\d+)*\.\s+[A-Z\s&]{3,}/.test(nextText)) break;
-        if (/^(as-is process|field name|priority|column name)\b/i.test(nextText)) break;
-        if (
-          nextText.startsWith("•") ||
-          nextText.startsWith("-") ||
-          nextText.startsWith("*") ||
-          nextText.startsWith("◦")
-        )
-          break;
-        if (paraLines[paraLines.length - 1].y - nextLine.y > line.fontSize * 1.8) break;
-
-        paraLines.push(nextLine);
-        lIdx++;
-      }
-
-      const paraFrags: Fragment[] = [];
-      paraLines.forEach((pl, idx) => {
-        if (idx > 0 && paraFrags.length > 0) {
-          const last = paraFrags[paraFrags.length - 1];
-          if (!last.str.endsWith(" ")) {
-            paraFrags.push({ ...last, str: " " });
-          }
-        }
-        paraFrags.push(...pl.items);
-      });
-
-      const runsXml = renderFragsToRuns(paraFrags, "1E293B");
-      bodyElementsXml.push(`
-        <w:p>
-          <w:pPr>
-            <w:spacing w:before="0" w:after="120" w:line="280" w:lineRule="auto"/>
-          </w:pPr>
-          ${runsXml}
-        </w:p>
-      `);
     }
 
     if (pageNum < total) {
@@ -660,61 +843,100 @@ function groupFragmentsIntoLines(fragments: Fragment[]): Line[] {
   return lines;
 }
 
-function buildTableXml(tableLines: Line[]): string {
-  const headerLine = tableLines[0];
-  const headerItems = headerLine.items;
+function buildAdvancedTableXml(tableFrags: Fragment[], headerAnchorY: number): string {
+  // 1. Gather all header items within ±12 pt of headerAnchorY
+  const headerFrags = tableFrags.filter((it) => Math.abs(it.y - headerAnchorY) <= 12);
 
+  // Find column clusters
+  const cols: { x: number; items: Fragment[] }[] = [];
+  headerFrags.sort((a, b) => a.x - b.x);
+  headerFrags.forEach((hf) => {
+    let c = cols.find((col) => Math.abs(col.x - hf.x) <= 25);
+    if (!c) {
+      c = { x: hf.x, items: [] };
+      cols.push(c);
+    }
+    c.items.push(hf);
+  });
+  cols.sort((a, b) => a.x - b.x);
+
+  const numCols = Math.max(cols.length, 2);
+
+  // Column cuts
   const colCuts: number[] = [];
-  for (let i = 0; i < headerItems.length - 1; i++) {
-    const itA = headerItems[i];
-    const itB = headerItems[i + 1];
-    colCuts.push((itA.x + itA.width + itB.x) / 2);
+  for (let cIdx = 0; cIdx < cols.length - 1; cIdx++) {
+    const rightA = Math.max(...cols[cIdx].items.map((it) => it.x + it.width));
+    const leftB = cols[cIdx + 1].x;
+    const cut = Math.min(leftB - 15, Math.max(rightA + 5, leftB - 22));
+    colCuts.push(cut);
   }
 
-  const numCols = headerItems.length > 1 ? headerItems.length : 3;
-
-  type TableRowData = {
-    startY: number;
-    cells: Fragment[][];
-  };
-
-  const rows: TableRowData[] = [];
-  let currentRow: TableRowData | null = null;
-
-  tableLines.forEach((l, idx) => {
-    const col0Items = l.items.filter(
-      (it) => colCuts.length === 0 || it.x < colCuts[0]
-    );
-    const isNewRow =
-      idx === 0 ||
-      (col0Items.length > 0 &&
-        currentRow &&
-        Math.abs(currentRow.startY - l.y) > 10);
-
-    if (isNewRow) {
-      currentRow = {
-        startY: l.y,
-        cells: Array.from({ length: numCols }, () => []),
-      };
-      rows.push(currentRow);
+  // Row start detection via Column 0 items
+  const col0Frags = tableFrags.filter((it) => it.x < (colCuts[0] || 9999));
+  const col0Lines: { y: number; items: Fragment[] }[] = [];
+  col0Frags.forEach((it) => {
+    let l = col0Lines.find((line) => Math.abs(line.y - it.y) <= 4);
+    if (!l) {
+      l = { y: it.y, items: [] };
+      col0Lines.push(l);
     }
+    l.items.push(it);
+  });
+  col0Lines.sort((a, b) => b.y - a.y);
 
-    l.items.forEach((it) => {
-      let colIdx = 0;
-      for (let c = 0; c < colCuts.length; c++) {
-        if (it.x >= colCuts[c]) colIdx = c + 1;
+  const rowStartYs = [headerAnchorY + 8];
+  for (let lIdx = 1; lIdx < col0Lines.length; lIdx++) {
+    const prevLine = col0Lines[lIdx - 1];
+    const currLine = col0Lines[lIdx];
+    if (prevLine.y - currLine.y >= 20) {
+      rowStartYs.push(currLine.y + 7);
+    }
+  }
+
+  const minY = Math.min(...tableFrags.map((it) => it.y));
+  rowStartYs.push(minY - 15);
+
+  const numRows = rowStartYs.length - 1;
+  const rows: Fragment[][][] = Array.from({ length: numRows }, () =>
+    Array.from({ length: numCols }, () => [])
+  );
+
+  tableFrags.forEach((it) => {
+    let cIdx = 0;
+    for (let c = 0; c < colCuts.length; c++) {
+      if (it.x >= colCuts[c]) cIdx = c + 1;
+    }
+    if (cIdx >= numCols) cIdx = numCols - 1;
+
+    for (let r = 0; r < numRows; r++) {
+      const topY = rowStartYs[r];
+      const bottomY = rowStartYs[r + 1];
+      if (it.y <= topY && it.y > bottomY) {
+        rows[r][cIdx].push(it);
+        break;
       }
-      if (colIdx >= numCols) colIdx = numCols - 1;
-      currentRow?.cells[colIdx].push(it);
-    });
+    }
   });
 
-  const pctPerCol = Math.round(5000 / numCols);
+  // Calculate proportional column widths
+  const minTableX = Math.min(...tableFrags.map((it) => it.x));
+  const maxTableX = Math.max(...tableFrags.map((it) => it.x + it.width));
+  const totalTableSpan = Math.max(maxTableX - minTableX, 400);
+
+  const colWidthsPct: number[] = [];
+  for (let c = 0; c < numCols; c++) {
+    const leftX = c === 0 ? minTableX : colCuts[c - 1];
+    const rightX = c === numCols - 1 ? maxTableX : colCuts[c];
+    const pct = Math.round(((rightX - leftX) / totalTableSpan) * 5000);
+    colWidthsPct.push(pct);
+  }
+
   const rowsXml = rows
     .map((r, rIdx) => {
       const isHeader = rIdx === 0;
-      const cellsXml = r.cells
-        .map((cellFrags) => {
+      const cellsXml = r
+        .map((cellFrags, cIdx) => {
+          cellFrags.sort((a, b) => b.y - a.y || a.x - b.x);
           const cellText = cellFrags
             .map((f) => f.str)
             .join(" ")
@@ -723,11 +945,12 @@ function buildTableXml(tableLines: Line[]): string {
             ? '<w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/>'
             : "";
           const bXml = isHeader ? "<w:b/>" : "";
+          const widthPct = colWidthsPct[cIdx] || Math.round(5000 / numCols);
 
           return `
             <w:tc>
               <w:tcPr>
-                <w:tcW w:w="${pctPerCol}" w:type="pct"/>
+                <w:tcW w:w="${widthPct}" w:type="pct"/>
                 ${shdXml}
                 <w:vAlign w:val="center"/>
               </w:tcPr>
@@ -765,10 +988,10 @@ function buildTableXml(tableLines: Line[]): string {
           <w:right w:val="none"/>
         </w:tblBorders>
         <w:tblCellMar>
-          <w:top w:w="100" w:type="dxa"/>
-          <w:left w:w="140" w:type="dxa"/>
-          <w:bottom w:w="100" w:type="dxa"/>
-          <w:right w:w="140" w:type="dxa"/>
+          <w:top w:w="120" w:type="dxa"/>
+          <w:left w:w="160" w:type="dxa"/>
+          <w:bottom w:w="120" w:type="dxa"/>
+          <w:right w:w="160" w:type="dxa"/>
         </w:tblCellMar>
       </w:tblPr>
       ${rowsXml}
