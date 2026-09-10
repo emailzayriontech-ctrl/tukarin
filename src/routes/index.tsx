@@ -28,6 +28,7 @@ export const Route = createFileRoute("/")({
 const CATEGORIES: ToolCategory[] = ["convert", "organize", "security", "optimize"];
 
 function Index() {
+  const [selectedCategory, setSelectedCategory] = useState<ToolCategory | "all">("all");
   const [stats, setStats] = useState<UsageStats>({ totalRuns: 0, totalFiles: 0, toolCounts: {} });
   const [globalCount, setGlobalCount] = useState<number>(143820);
 
@@ -88,7 +89,7 @@ function Index() {
               href="#tools"
               className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-background px-6 text-sm font-semibold transition hover:bg-accent"
             >
-              Lihat 14 Tools
+              Lihat Semua Tools ({TOOLS.length})
             </a>
           </div>
 
@@ -180,7 +181,40 @@ function Index() {
 
       {/* TOOLS */}
       <section id="tools" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-16">
-        {CATEGORIES.map((cat) => {
+        {/* CATEGORY FILTER TABS */}
+        <div className="mb-8 flex flex-wrap items-center justify-center gap-2 border-b border-border/60 pb-6">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory("all")}
+            className={`cursor-pointer rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+              selectedCategory === "all"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-card border border-border/80 text-muted-foreground hover:bg-accent hover:text-foreground"
+            }`}
+          >
+            Semua ({TOOLS.length})
+          </button>
+          {CATEGORIES.map((catKey) => {
+            const count = TOOLS.filter((t) => t.category === catKey).length;
+            const isSelected = selectedCategory === catKey;
+            return (
+              <button
+                key={catKey}
+                type="button"
+                onClick={() => setSelectedCategory(catKey)}
+                className={`cursor-pointer rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                  isSelected
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-card border border-border/80 text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                {CATEGORY_LABEL[catKey]} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        {CATEGORIES.filter((c) => selectedCategory === "all" || selectedCategory === c).map((cat) => {
           const items = TOOLS.filter((t) => t.category === cat);
           if (!items.length) return null;
           return (

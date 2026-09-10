@@ -65,6 +65,34 @@ export const CATEGORY_LABEL: Record<ToolCategory, string> = {
   security: "Keamanan",
 };
 
+export const TOOL_CATEGORIES: ToolCategory[] = ["convert", "organize", "security", "optimize"];
+
+export const CATEGORY_INFO: Record<
+  ToolCategory,
+  { label: string; icon: LucideIcon; description: string }
+> = {
+  convert: {
+    label: "Konversi",
+    icon: RefreshCw,
+    description: "Ubah format PDF, Word, Gambar & Video",
+  },
+  organize: {
+    label: "Atur & Edit",
+    icon: Layers,
+    description: "Gabung, pisah, putar & kelola halaman",
+  },
+  security: {
+    label: "Keamanan",
+    icon: Lock,
+    description: "Kunci, buka sandi & tanda tangan digital",
+  },
+  optimize: {
+    label: "Optimasi",
+    icon: Sparkles,
+    description: "Kompres ukuran, perbaiki & upscale kualitas",
+  },
+};
+
 export const TOOLS: ToolDef[] = [
   {
     slug: "image-to-pdf",
