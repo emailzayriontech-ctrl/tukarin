@@ -19,23 +19,21 @@ export async function compressImageFile(
     fileType: targetType,
   });
 
-  // Adjust filename extension if the format was converted
-  if (opts.outputFormat && opts.outputFormat !== "original") {
-    const lastDot = file.name.lastIndexOf(".");
-    const baseName = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
-    let newName = file.name;
+  const lastDot = file.name.lastIndexOf(".");
+  const baseName = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
+  let newName = file.name;
 
-    if (targetType === "image/jpeg") {
-      newName = `${baseName}.jpg`;
-    } else if (targetType === "image/png") {
-      newName = `${baseName}.png`;
-    } else if (targetType === "image/webp") {
-      newName = `${baseName}.webp`;
-    }
-
-    return new File([result], newName, { type: targetType, lastModified: Date.now() });
+  if (targetType === "image/jpeg") {
+    newName = `${baseName}.jpg`;
+  } else if (targetType === "image/png") {
+    newName = `${baseName}.png`;
+  } else if (targetType === "image/webp") {
+    newName = `${baseName}.webp`;
+  } else {
+    // If format is original, keep original filename
+    newName = file.name;
   }
 
-  return result;
+  return new File([result], newName, { type: targetType, lastModified: Date.now() });
 }
 

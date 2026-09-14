@@ -99,6 +99,7 @@ function Index() {
               Paling Sering Dicari (Pintas Konversi)
             </div>
             <div className="flex flex-wrap justify-center gap-2">
+              <QuickTag to="/convert-image" label="Gambar ke WebP (Batch Kompres)" />
               <QuickTag to="/image-to-pdf" label="JPG ke PDF" />
               <QuickTag to="/image-to-pdf" label="PNG ke PDF" />
               <QuickTag to="/heic-to-jpg" label="HEIC ke JPG (Apple)" />

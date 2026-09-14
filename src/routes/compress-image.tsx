@@ -8,7 +8,7 @@ import { TOOLS } from "@/lib/tools/registry";
 import { compressImageFile } from "@/lib/tools/compressImage";
 import { downloadAsZip, downloadBlob } from "@/lib/downloadHelpers";
 import { formatBytes } from "@/lib/formatBytes";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 
 const TOOL = TOOLS.find((t) => t.slug === "compress-image")!;
 
@@ -34,6 +34,7 @@ function Page() {
   const [targetMB, setTargetMB] = useState(1);
   const [outputFormat, setOutputFormat] = useState<string>("original");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,9 +74,12 @@ function Page() {
   async function run() {
     setBusy(true);
     setError(null);
+    setProgress({ current: 0, total: rows.length });
     try {
       const updated: Row[] = [];
-      for (const r of rows) {
+      for (let i = 0; i < rows.length; i++) {
+        setProgress({ current: i + 1, total: rows.length });
+        const r = rows[i];
         const result = await compressImageFile(r.file, {
           quality,
           maxDimension: maxDim,
@@ -91,6 +95,7 @@ function Page() {
       setError(e instanceof Error ? e.message : "Gagal mengompres gambar.");
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -101,6 +106,7 @@ function Page() {
     });
     setRows([]);
     setDone(false);
+    setProgress(null);
     setError(null);
   }
 
@@ -209,6 +215,18 @@ function Page() {
             )}
           </div>
 
+          {/* NAME PRESERVATION BANNER */}
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span>
+              <strong>Nama File Asli Dipertahankan:</strong> Setiap gambar yang dikompres tetap mempertahankan nama aslinya (misal:{" "}
+              <code className="font-mono font-medium">
+                foto.{outputFormat === "image/webp" ? "webp" : outputFormat === "image/jpeg" ? "jpg" : outputFormat === "image/png" ? "png" : "jpg"}
+              </code>
+              ) tanpa ada tambahan prefix atau kode acak.
+            </span>
+          </div>
+
           <div className="space-y-2">
             {rows.map((r) => (
               <div
@@ -227,7 +245,7 @@ function Page() {
                 <button
                   type="button"
                   onClick={() => remove(r.id)}
-                  className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
+                  className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent cursor-pointer"
                 >
                   Hapus
                 </button>
@@ -242,16 +260,17 @@ function Page() {
           )}
 
           <div className="flex flex-wrap justify-center gap-2">
-            <Button size="lg" onClick={run} disabled={busy} className="min-w-40">
+            <Button size="lg" onClick={run} disabled={busy} className="min-w-48 cursor-pointer">
               {busy ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mengompres…
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {progress ? `Mengompres ${progress.current} dari ${progress.total}...` : "Mengompres…"}
                 </>
               ) : (
-                "Kompres gambar"
+                `Kompres ${rows.length} Gambar`
               )}
             </Button>
-            <Button size="lg" variant="outline" onClick={reset} disabled={busy}>
+            <Button size="lg" variant="outline" onClick={reset} disabled={busy} className="cursor-pointer">
               Reset
             </Button>
           </div>
@@ -263,10 +282,10 @@ function Page() {
           <ResultPanel
             originalSize={origTotal}
             totalSize={compTotal}
-            description={`${rows.length} gambar berhasil dikompres.`}
+            description={`${rows.length} gambar berhasil dikompres dengan nama asli tetap sama.`}
             onDownload={downloadAll}
             onReset={reset}
-            downloadLabel={rows.length > 1 ? "Unduh ZIP" : "Unduh gambar"}
+            downloadLabel={rows.length > 1 ? `Unduh Semua ZIP (${rows.length} file)` : "Unduh gambar"}
           />
 
           <div className="space-y-2">
@@ -277,7 +296,7 @@ function Page() {
               >
                 <img src={r.resultUrl ?? r.previewUrl} alt="" className="h-12 w-12 rounded-md object-cover" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{r.file.name}</div>
+                  <div className="truncate text-sm font-medium">{r.result?.name || r.file.name}</div>
                   <div className="text-xs text-muted-foreground">
                     <span className="line-through">{formatBytes(r.file.size)}</span>
                     {" → "}
@@ -296,6 +315,7 @@ function Page() {
                     size="sm"
                     variant="outline"
                     onClick={() => downloadBlob(r.result!, r.result!.name || r.file.name)}
+                    className="cursor-pointer"
                   >
                     Unduh
                   </Button>

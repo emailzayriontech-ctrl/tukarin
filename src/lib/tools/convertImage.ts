@@ -3,7 +3,8 @@ export type TargetFormat = "image/jpeg" | "image/png" | "image/webp";
 export async function convertImageFile(
   file: File,
   targetFormat: TargetFormat,
-  quality: number = 0.92,
+  quality: number = 0.8,
+  maxDimension?: number,
 ): Promise<{ blob: Blob; filename: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -11,9 +12,26 @@ export async function convertImageFile(
 
     img.onload = () => {
       URL.revokeObjectURL(url);
+
+      let width = img.naturalWidth || img.width;
+      let height = img.naturalHeight || img.height;
+
+      // Scale down proportionately if maxDimension is set
+      if (maxDimension && maxDimension > 0) {
+        if (width > maxDimension || height > maxDimension) {
+          if (width >= height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+      }
+
       const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext("2d");
 
       if (!ctx) {
@@ -21,13 +39,16 @@ export async function convertImageFile(
         return;
       }
 
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
       // If converting to JPEG, paint a white background for PNG transparency
       if (targetFormat === "image/jpeg") {
         ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, width, height);
       }
 
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
 
       canvas.toBlob(
         (blob) => {
@@ -36,7 +57,9 @@ export async function convertImageFile(
             return;
           }
 
-          const baseName = file.name.substring(0, file.name.lastIndexOf(".")) || file.name;
+          // Strictly preserve the original base name
+          const lastDot = file.name.lastIndexOf(".");
+          const baseName = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
           let ext = "jpg";
           if (targetFormat === "image/png") ext = "png";
           if (targetFormat === "image/webp") ext = "webp";
