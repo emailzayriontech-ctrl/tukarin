@@ -6,6 +6,7 @@ export type VideoFormatOption = {
   displayName: string;
   url: string;
   size?: string;
+  bytes?: number;
   isAudioOnly?: boolean;
   badge?: string;
 };
@@ -153,6 +154,7 @@ export const downloadVideo = createServerFn({ method: "POST" })
               displayName,
               url: targetUrl,
               size,
+              bytes: v.metadata?.content_length,
               badge,
               isAudioOnly: false,
             });
@@ -167,6 +169,7 @@ export const downloadVideo = createServerFn({ method: "POST" })
               displayName: key,
               url: v.url || v.link,
               size: v.metadata?.content_length_text,
+              bytes: v.metadata?.content_length,
               isAudioOnly: false,
             });
           }
@@ -181,6 +184,7 @@ export const downloadVideo = createServerFn({ method: "POST" })
               displayName: "Audio Saja (M4A / Musik)",
               url: bestAudio.url || bestAudio.link,
               size: bestAudio.metadata?.content_length_text,
+              bytes: bestAudio.metadata?.content_length,
               badge: "Musik",
               isAudioOnly: true,
             });

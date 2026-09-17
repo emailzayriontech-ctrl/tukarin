@@ -59,7 +59,12 @@ function Page() {
   const [quality, setQuality] = useState<number>(0.8);
   const [maxDim, setMaxDim] = useState<number>(0); // 0 = original
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+    elapsedSec: number;
+    etaSec: number | null;
+  } | null>(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,11 +98,23 @@ function Page() {
   async function run() {
     setBusy(true);
     setError(null);
-    setProgress({ current: 0, total: rows.length });
+    const startTime = Date.now();
+    setProgress({ current: 0, total: rows.length, elapsedSec: 0, etaSec: null });
     try {
       const updated: Row[] = [];
       for (let i = 0; i < rows.length; i++) {
-        setProgress({ current: i + 1, total: rows.length });
+        const now = Date.now();
+        const elapsedSec = (now - startTime) / 1000;
+        const avgTimePerItem = i > 0 ? elapsedSec / i : 0.4;
+        const remainingItems = rows.length - i;
+        const etaSec = Math.ceil(remainingItems * avgTimePerItem);
+        setProgress({
+          current: i + 1,
+          total: rows.length,
+          elapsedSec: Math.floor(elapsedSec),
+          etaSec,
+        });
+
         const r = rows[i];
         const { blob, filename } = await convertImageFile(
           r.file,
@@ -410,13 +427,48 @@ function Page() {
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   {progress
-                    ? `Memproses ${progress.current} dari ${progress.total} gambar...`
+                    ? `Memproses ${progress.current}/${progress.total} • Selesai: ~${progress.etaSec ?? 1}s`
                     : "Mengonversi…"}
                 </>
               ) : (
                 `Kompres & Konversi ${rows.length} Gambar`
               )}
             </Button>
+
+            {busy && progress && (
+              <div className="w-full max-w-md rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-2 text-center animate-in fade-in">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-foreground">
+                    Memproses {progress.current} dari {progress.total} gambar
+                  </span>
+                  <span className="font-mono text-primary font-bold">
+                    {Math.round((progress.current / progress.total) * 100)}%
+                  </span>
+                </div>
+
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-150 rounded-full"
+                    style={{
+                      width: `${Math.round((progress.current / progress.total) * 100)}%`,
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+                  <span>
+                    ⏱️ Estimasi selesai:{" "}
+                    <strong className="text-foreground">
+                      {progress.etaSec !== null ? `~${progress.etaSec} detik lagi` : "Menghitung..."}
+                    </strong>
+                  </span>
+                  <span>
+                    ⏳ Durasi berjalan: <strong className="text-foreground">{progress.elapsedSec}s</strong>
+                  </span>
+                </div>
+              </div>
+            )}
+
             <Button
               size="sm"
               variant="ghost"

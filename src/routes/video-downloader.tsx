@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ToolPageShell } from "@/components/tools/ToolPageShell";
 import { Button } from "@/components/ui/button";
 import { TOOLS } from "@/lib/tools/registry";
@@ -12,11 +12,12 @@ import {
   Music,
   Clock,
   User,
-  Sparkles,
+  Zap,
 } from "lucide-react";
 import { trackUsage } from "@/lib/usageTracker";
 import { downloadVideo, type VideoFormatOption } from "@/lib/videoDownloader";
 import { downloadBlob } from "@/lib/downloadHelpers";
+import { formatBytes } from "@/lib/formatBytes";
 
 const TOOL = TOOLS.find((t) => t.slug === "video-downloader")!;
 
@@ -43,12 +44,56 @@ type DownloadResult = {
   formats?: VideoFormatOption[];
 };
 
+type DownloadProgress = {
+  formatLabel: string;
+  receivedBytes: number;
+  totalBytes: number;
+  percent: number;
+  speed: number;
+  elapsedSec: number;
+  etaSec: number | null;
+  status: "downloading" | "completed" | "error";
+};
+
+function formatSpeed(bytesPerSec: number): string {
+  if (bytesPerSec <= 0) return "0 KB/s";
+  if (bytesPerSec >= 1024 * 1024) {
+    return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+  }
+  return `${Math.round(bytesPerSec / 1024)} KB/s`;
+}
+
+function formatEta(seconds: number | null): string {
+  if (seconds === null || seconds === undefined) return "Menghitung…";
+  if (seconds <= 0) return "Hampir selesai";
+  if (seconds < 60) return `~${seconds} detik lagi`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s > 0 ? `~${m}m ${s}s lagi` : `~${m} menit lagi`;
+}
+
 function Page() {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [processElapsed, setProcessElapsed] = useState(0);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadResult, setDownloadResult] = useState<DownloadResult | null>(null);
+
+  // Live timer saat menganalisis link video
+  useEffect(() => {
+    let interval: any;
+    if (busy) {
+      setProcessElapsed(0);
+      interval = setInterval(() => {
+        setProcessElapsed((v) => v + 1);
+      }, 1000);
+    } else {
+      setProcessElapsed(0);
+    }
+    return () => clearInterval(interval);
+  }, [busy]);
 
   async function handleDownload(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +103,7 @@ function Page() {
       setBusy(true);
       setError(null);
       setDownloadResult(null);
+      setDownloadProgress(null);
 
       const targetUrl = url.trim();
 
@@ -86,37 +132,104 @@ function Page() {
   }
 
   async function handleSaveFile(fmt: VideoFormatOption) {
+    const startTime = Date.now();
+    let lastUpdate = 0;
+
+    const cleanTitle = (downloadResult?.title || "video-tukarin")
+      .replace(/[^a-zA-Z0-9\s_-]/g, "")
+      .trim()
+      .slice(0, 45) || "video-tukarin";
+
+    const ext = fmt.isAudioOnly ? "m4a" : "mp4";
+    const filename = `${cleanTitle}-${fmt.label}.${ext}`;
+
     try {
       setDownloadingUrl(fmt.url);
+      setDownloadProgress({
+        formatLabel: fmt.displayName || fmt.label,
+        receivedBytes: 0,
+        totalBytes: fmt.bytes || 0,
+        percent: 0,
+        speed: 0,
+        elapsedSec: 0,
+        etaSec: null,
+        status: "downloading",
+      });
+
       const res = await fetch(fmt.url);
-      if (!res.ok) throw new Error("Network error");
-      const blob = await res.blob();
+      if (!res.ok) throw new Error(`Gagal mengunduh file: HTTP ${res.status}`);
 
-      const cleanTitle = (downloadResult?.title || "video-tukarin")
-        .replace(/[^a-zA-Z0-9\s_-]/g, "")
-        .trim()
-        .slice(0, 45) || "video-tukarin";
+      const headerLen = res.headers.get("content-length");
+      const total = headerLen ? parseInt(headerLen, 10) : (fmt.bytes || 0);
 
-      const ext = fmt.isAudioOnly ? "m4a" : "mp4";
-      const filename = `${cleanTitle}-${fmt.label}.${ext}`;
+      if (!res.body) {
+        const blob = await res.blob();
+        downloadBlob(blob, filename);
+        setDownloadProgress((prev) => (prev ? { ...prev, percent: 100, status: "completed" } : null));
+        return;
+      }
 
-      downloadBlob(blob, filename);
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        chunks.push(value);
+        received += value.length;
+
+        const now = Date.now();
+        if (now - lastUpdate > 100) {
+          lastUpdate = now;
+          const elapsed = (now - startTime) / 1000;
+          const speed = elapsed > 0 ? received / elapsed : 0;
+          const remaining = total > received ? total - received : 0;
+          const eta = speed > 0 && remaining > 0 ? Math.ceil(remaining / speed) : null;
+          const pct = total > 0 ? Math.min(99, Math.round((received / total) * 100)) : 0;
+
+          setDownloadProgress({
+            formatLabel: fmt.displayName || fmt.label,
+            receivedBytes: received,
+            totalBytes: total,
+            percent: pct,
+            speed,
+            elapsedSec: Math.floor(elapsed),
+            etaSec: eta,
+            status: "downloading",
+          });
+        }
+      }
+
+      const totalElapsed = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
+      setDownloadProgress({
+        formatLabel: fmt.displayName || fmt.label,
+        receivedBytes: received,
+        totalBytes: total || received,
+        percent: 100,
+        speed: received / totalElapsed,
+        elapsedSec: totalElapsed,
+        etaSec: 0,
+        status: "completed",
+      });
+
+      const mimeType = fmt.isAudioOnly ? "audio/mp4" : "video/mp4";
+      const finalBlob = new Blob(chunks as any, { type: mimeType });
+      downloadBlob(finalBlob, filename);
     } catch (e) {
-      // Fallback jika direct blob fetch diblokir oleh CORS browser
-      const cleanTitle = (downloadResult?.title || "video-tukarin")
-        .replace(/[^a-zA-Z0-9\s_-]/g, "")
-        .trim()
-        .slice(0, 45) || "video-tukarin";
-
-      const ext = fmt.isAudioOnly ? "m4a" : "mp4";
+      console.warn("Direct blob stream error, fallback to browser native download:", e);
+      // Fallback direct browser download
       const a = document.createElement("a");
       a.href = fmt.url;
-      a.download = `${cleanTitle}-${fmt.label}.${ext}`;
+      a.download = filename;
       a.target = "_blank";
       a.rel = "noopener noreferrer";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+
+      setDownloadProgress(null);
     } finally {
       setDownloadingUrl(null);
     }
@@ -141,6 +254,21 @@ function Page() {
             </Button>
           </div>
         </form>
+
+        {/* Indikator Durasi Proses saat Menganalisis Video */}
+        {busy && (
+          <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-center gap-3 animate-in fade-in duration-200">
+            <Loader2 className="h-5 w-5 text-primary animate-spin shrink-0" />
+            <div className="text-left text-xs">
+              <div className="font-bold text-foreground">
+                Sedang Menganalisis Video & Opsi Resolusi...
+              </div>
+              <div className="text-muted-foreground mt-0.5">
+                Durasi pengerjaan: <span className="font-mono font-medium text-foreground">{processElapsed} detik</span> • Estimasi selesai: ~2-5 detik
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div className="mt-6 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-destructive">
@@ -187,6 +315,95 @@ function Page() {
                 )}
               </div>
             </div>
+
+            {/* Progress Estimasi Selesai & Durasi Pengerjaan Unduhan */}
+            {downloadProgress && (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {downloadProgress.status === "completed" ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    ) : (
+                      <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+                    )}
+                    <span className="text-xs sm:text-sm font-bold text-foreground truncate">
+                      {downloadProgress.status === "completed"
+                        ? `Unduhan Selesai (${downloadProgress.formatLabel})`
+                        : `Mengunduh ${downloadProgress.formatLabel}...`}
+                    </span>
+                  </div>
+                  <span className="font-mono text-xs font-bold text-primary shrink-0">
+                    {downloadProgress.percent}%
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-150 rounded-full ${
+                      downloadProgress.status === "completed"
+                        ? "bg-emerald-500"
+                        : "bg-primary"
+                    }`}
+                    style={{ width: `${Math.max(3, downloadProgress.percent)}%` }}
+                  />
+                </div>
+
+                {/* 4 Metric Chips: Estimasi Selesai, Durasi, Kecepatan, Ukuran */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-left pt-0.5">
+                  <div className="rounded-lg border border-border/80 bg-background/90 p-2">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                      <Clock className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                      <span>Estimasi Selesai</span>
+                    </div>
+                    <div className="text-xs font-bold text-foreground mt-0.5">
+                      {downloadProgress.status === "completed"
+                        ? "Selesai"
+                        : formatEta(downloadProgress.etaSec)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border/80 bg-background/90 p-2">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                      <Clock className="h-3 w-3 text-primary" />
+                      <span>Durasi Proses</span>
+                    </div>
+                    <div className="text-xs font-bold text-foreground mt-0.5">
+                      {downloadProgress.elapsedSec} detik
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border/80 bg-background/90 p-2">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                      <Zap className="h-3 w-3 text-amber-500" />
+                      <span>Kecepatan</span>
+                    </div>
+                    <div className="text-xs font-bold text-foreground mt-0.5">
+                      {formatSpeed(downloadProgress.speed)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border/80 bg-background/90 p-2">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+                      <Download className="h-3 w-3 text-blue-500" />
+                      <span>Ukuran File</span>
+                    </div>
+                    <div className="text-xs font-bold text-foreground mt-0.5 truncate">
+                      {formatBytes(downloadProgress.receivedBytes)}
+                      {downloadProgress.totalBytes > 0
+                        ? ` / ${formatBytes(downloadProgress.totalBytes)}`
+                        : ""}
+                    </div>
+                  </div>
+                </div>
+
+                {downloadProgress.status === "completed" && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    ✅ Berhasil diunduh dan disimpan ke perangkat Anda dalam waktu {downloadProgress.elapsedSec} detik.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Pilihan Resolusi (Jika Tersedia) */}
             {downloadResult.formats && downloadResult.formats.length > 0 ? (

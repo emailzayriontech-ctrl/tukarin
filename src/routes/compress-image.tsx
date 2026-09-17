@@ -34,7 +34,12 @@ function Page() {
   const [targetMB, setTargetMB] = useState(1);
   const [outputFormat, setOutputFormat] = useState<string>("original");
   const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    current: number;
+    total: number;
+    elapsedSec: number;
+    etaSec: number | null;
+  } | null>(null);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,11 +79,23 @@ function Page() {
   async function run() {
     setBusy(true);
     setError(null);
-    setProgress({ current: 0, total: rows.length });
+    const startTime = Date.now();
+    setProgress({ current: 0, total: rows.length, elapsedSec: 0, etaSec: null });
     try {
       const updated: Row[] = [];
       for (let i = 0; i < rows.length; i++) {
-        setProgress({ current: i + 1, total: rows.length });
+        const now = Date.now();
+        const elapsedSec = (now - startTime) / 1000;
+        const avgTimePerItem = i > 0 ? elapsedSec / i : 0.5;
+        const remainingItems = rows.length - i;
+        const etaSec = Math.ceil(remainingItems * avgTimePerItem);
+        setProgress({
+          current: i + 1,
+          total: rows.length,
+          elapsedSec: Math.floor(elapsedSec),
+          etaSec,
+        });
+
         const r = rows[i];
         const result = await compressImageFile(r.file, {
           quality,
@@ -259,20 +276,56 @@ function Page() {
             </div>
           )}
 
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button size="lg" onClick={run} disabled={busy} className="min-w-48 cursor-pointer">
-              {busy ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {progress ? `Mengompres ${progress.current} dari ${progress.total}...` : "Mengompres…"}
-                </>
-              ) : (
-                `Kompres ${rows.length} Gambar`
-              )}
-            </Button>
-            <Button size="lg" variant="outline" onClick={reset} disabled={busy} className="cursor-pointer">
-              Reset
-            </Button>
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button size="lg" onClick={run} disabled={busy} className="min-w-48 cursor-pointer">
+                {busy ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {progress ? `Mengompres ${progress.current}/${progress.total} • Selesai: ~${progress.etaSec ?? 1}s` : "Mengompres…"}
+                  </>
+                ) : (
+                  `Kompres ${rows.length} Gambar`
+                )}
+              </Button>
+              <Button size="lg" variant="outline" onClick={reset} disabled={busy} className="cursor-pointer">
+                Reset
+              </Button>
+            </div>
+
+            {busy && progress && (
+              <div className="w-full max-w-md rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-2 text-center animate-in fade-in">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-foreground">
+                    Mengompres {progress.current} dari {progress.total} gambar
+                  </span>
+                  <span className="font-mono text-primary font-bold">
+                    {Math.round((progress.current / progress.total) * 100)}%
+                  </span>
+                </div>
+
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-150 rounded-full"
+                    style={{
+                      width: `${Math.round((progress.current / progress.total) * 100)}%`,
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+                  <span>
+                    ⏱️ Estimasi selesai:{" "}
+                    <strong className="text-foreground">
+                      {progress.etaSec !== null ? `~${progress.etaSec} detik lagi` : "Menghitung..."}
+                    </strong>
+                  </span>
+                  <span>
+                    ⏳ Durasi berjalan: <strong className="text-foreground">{progress.elapsedSec}s</strong>
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
