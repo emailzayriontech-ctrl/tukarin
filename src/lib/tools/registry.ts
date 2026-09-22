@@ -21,6 +21,7 @@ import {
   FileCode,
   Wrench,
   FileDigit,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,6 +41,7 @@ export type ToolDef = {
     | "/split-pdf"
     | "/compress-pdf"
     | "/compress-image"
+    | "/compress-video"
     | "/rotate-pdf"
     | "/organize-pdf"
     | "/watermark-pdf"
@@ -291,6 +293,15 @@ export const TOOLS: ToolDef[] = [
     category: "convert",
     icon: Download,
     to: "/video-downloader",
+  },
+  {
+    slug: "compress-video",
+    title: "Kompres Video",
+    short: "MP4, WebM, MOV",
+    description: "Perkecil ukuran file video secara langsung di browser tanpa upload ke server. Hasil tajam & hemat kuota.",
+    category: "optimize",
+    icon: Video,
+    to: "/compress-video",
   },
 ];
 

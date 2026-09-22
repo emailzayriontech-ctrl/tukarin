@@ -30,6 +30,7 @@ import { Route as ImageToPdfRouteImport } from './routes/image-to-pdf'
 import { Route as HeicToJpgRouteImport } from './routes/heic-to-jpg'
 import { Route as ExtractPagesRouteImport } from './routes/extract-pages'
 import { Route as ConvertImageRouteImport } from './routes/convert-image'
+import { Route as CompressVideoRouteImport } from './routes/compress-video'
 import { Route as CompressPdfRouteImport } from './routes/compress-pdf'
 import { Route as CompressImageRouteImport } from './routes/compress-image'
 import { Route as IndexRouteImport } from './routes/index'
@@ -139,6 +140,11 @@ const ConvertImageRoute = ConvertImageRouteImport.update({
   path: '/convert-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompressVideoRoute = CompressVideoRouteImport.update({
+  id: '/compress-video',
+  path: '/compress-video',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompressPdfRoute = CompressPdfRouteImport.update({
   id: '/compress-pdf',
   path: '/compress-pdf',
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
+  '/compress-video': typeof CompressVideoRoute
   '/convert-image': typeof ConvertImageRoute
   '/extract-pages': typeof ExtractPagesRoute
   '/heic-to-jpg': typeof HeicToJpgRoute
@@ -185,6 +192,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
+  '/compress-video': typeof CompressVideoRoute
   '/convert-image': typeof ConvertImageRoute
   '/extract-pages': typeof ExtractPagesRoute
   '/heic-to-jpg': typeof HeicToJpgRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/compress-image': typeof CompressImageRoute
   '/compress-pdf': typeof CompressPdfRoute
+  '/compress-video': typeof CompressVideoRoute
   '/convert-image': typeof ConvertImageRoute
   '/extract-pages': typeof ExtractPagesRoute
   '/heic-to-jpg': typeof HeicToJpgRoute
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/'
     | '/compress-image'
     | '/compress-pdf'
+    | '/compress-video'
     | '/convert-image'
     | '/extract-pages'
     | '/heic-to-jpg'
@@ -266,6 +276,7 @@ export interface FileRouteTypes {
     | '/'
     | '/compress-image'
     | '/compress-pdf'
+    | '/compress-video'
     | '/convert-image'
     | '/extract-pages'
     | '/heic-to-jpg'
@@ -292,6 +303,7 @@ export interface FileRouteTypes {
     | '/'
     | '/compress-image'
     | '/compress-pdf'
+    | '/compress-video'
     | '/convert-image'
     | '/extract-pages'
     | '/heic-to-jpg'
@@ -319,6 +331,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CompressImageRoute: typeof CompressImageRoute
   CompressPdfRoute: typeof CompressPdfRoute
+  CompressVideoRoute: typeof CompressVideoRoute
   ConvertImageRoute: typeof ConvertImageRoute
   ExtractPagesRoute: typeof ExtractPagesRoute
   HeicToJpgRoute: typeof HeicToJpgRoute
@@ -491,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConvertImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/compress-video': {
+      id: '/compress-video'
+      path: '/compress-video'
+      fullPath: '/compress-video'
+      preLoaderRoute: typeof CompressVideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/compress-pdf': {
       id: '/compress-pdf'
       path: '/compress-pdf'
@@ -519,6 +539,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CompressImageRoute: CompressImageRoute,
   CompressPdfRoute: CompressPdfRoute,
+  CompressVideoRoute: CompressVideoRoute,
   ConvertImageRoute: ConvertImageRoute,
   ExtractPagesRoute: ExtractPagesRoute,
   HeicToJpgRoute: HeicToJpgRoute,
