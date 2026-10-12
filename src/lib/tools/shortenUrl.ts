@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import QRCode from "qrcode";
+import { createQrDataUrl } from "./qrCodeGenerator";
 
 export type ShortenerProvider = "auto" | "tinyurl" | "dagd" | "vgd" | "ulvis" | "clck";
 
@@ -309,14 +309,11 @@ export async function generateQrCode(
   } = {},
 ): Promise<string> {
   const { colorDark = "#0D1B2A", colorLight = "#FFFFFF", width = 500, margin = 2 } = options;
-  return QRCode.toDataURL(text, {
-    width,
+  return createQrDataUrl(text, {
+    colorDark,
+    colorLight,
+    size: width,
     margin,
-    color: {
-      dark: colorDark,
-      light: colorLight,
-    },
-    errorCorrectionLevel: "H",
   });
 }
 
