@@ -5,6 +5,7 @@ export async function unlockPdf(file: File, password?: string): Promise<Blob> {
   
   try {
     const doc = await PDFDocument.load(bytes, {
+      // @ts-expect-error pdf-lib typings omit password in LoadOptions
       password: password || "",
       ignoreEncryption: !password,
     });

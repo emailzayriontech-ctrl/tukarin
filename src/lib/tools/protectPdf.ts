@@ -13,7 +13,7 @@ export async function protectPdf(
   const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
 
   // Encrypt with passwords
-  doc.encrypt({
+  (doc as any).encrypt({
     userPassword,
     ownerPassword: ownerPassword || userPassword,
     permissions: {

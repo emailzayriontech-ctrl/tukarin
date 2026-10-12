@@ -248,7 +248,7 @@ export const shortenUrlServerFn = createServerFn({ method: "POST" })
         }
       } else {
         // Auto without alias: fallback waterfall
-        const attempts = [
+        const attempts: { name: ShortenerProvider; label: string; fn: () => Promise<string> }[] = [
           { name: "tinyurl", label: "TinyURL", fn: () => shortenWithTinyUrl(normalizedUrl) },
           { name: "dagd", label: "da.gd", fn: () => shortenWithDaGd(normalizedUrl) },
           { name: "vgd", label: "v.gd", fn: () => shortenWithVGd(normalizedUrl) },
