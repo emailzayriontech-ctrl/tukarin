@@ -30,6 +30,7 @@ import {
   Trash2,
   History,
   Sparkles,
+  Share,
   Share2,
   Globe,
   SlidersHorizontal,
