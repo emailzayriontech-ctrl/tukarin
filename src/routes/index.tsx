@@ -17,8 +17,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Tukar.in — Tools PDF & Gambar Gratis" },
       {
         property: "og:description",
-        content:
-          "Konversi dan olah file PDF & gambar langsung di browser. Cepat, gratis, privat.",
+        content: "Konversi dan olah file PDF & gambar langsung di browser. Cepat, gratis, privat.",
       },
     ],
   }),
@@ -34,7 +33,7 @@ function Index() {
 
   useEffect(() => {
     setStats(getUsageStats());
-    
+
     // Load global file count from API
     getGlobalFileCount().then((count) => setGlobalCount(count));
 
@@ -69,7 +68,8 @@ function Index() {
             </span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-            Konversi JPG, PNG, WebP ke PDF, PDF ke Word, HEIC ke JPG, perbesar resolusi, hapus latar belakang, gabung, pisah, putar, kompres, dan watermark. Tanpa daftar, tanpa upload.
+            Konversi JPG, PNG, WebP ke PDF, PDF ke Word, HEIC ke JPG, perbesar resolusi, hapus latar
+            belakang, gabung, pisah, putar, kompres, dan watermark. Tanpa daftar, tanpa upload.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-sm">
@@ -99,6 +99,7 @@ function Index() {
               Paling Sering Dicari (Pintas Konversi)
             </div>
             <div className="flex flex-wrap justify-center gap-2">
+              <QuickTag to="/shorten-url" label="Persingkat Link URL (Buat QR)" />
               <QuickTag to="/compress-video" label="Kompres Video (MP4 / WebM)" />
               <QuickTag to="/convert-image" label="Gambar ke WebP (Batch Kompres)" />
               <QuickTag to="/image-to-pdf" label="JPG ke PDF" />
@@ -130,17 +131,23 @@ function Index() {
             <div className="grid gap-4 grid-cols-3 mb-6">
               <div className="rounded-2xl border border-border bg-background/50 p-4 text-center">
                 <div className="text-2xl font-extrabold text-primary">{stats.totalRuns}</div>
-                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">Total Penggunaan</div>
+                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">
+                  Total Penggunaan
+                </div>
               </div>
               <div className="rounded-2xl border border-border bg-background/50 p-4 text-center">
                 <div className="text-2xl font-extrabold text-primary">{stats.totalFiles}</div>
-                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">File Diproses</div>
+                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">
+                  File Diproses
+                </div>
               </div>
               <div className="rounded-2xl border border-border bg-background/50 p-4 text-center">
                 <div className="text-2xl font-extrabold text-primary">
                   {Object.keys(stats.toolCounts).length}
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">Jenis Tool</div>
+                <div className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">
+                  Jenis Tool
+                </div>
               </div>
             </div>
 
@@ -157,7 +164,10 @@ function Index() {
                     if (!tool) return null;
                     const pct = Math.round((count.runs / stats.totalRuns) * 100);
                     return (
-                      <div key={slug} className="rounded-xl border border-border/80 bg-background/50 p-3 text-sm">
+                      <div
+                        key={slug}
+                        className="rounded-xl border border-border/80 bg-background/50 p-3 text-sm"
+                      >
                         <div className="flex items-center justify-between font-medium">
                           <span>{tool.title}</span>
                           <span className="text-primary font-semibold">{count.runs}x</span>
@@ -216,25 +226,27 @@ function Index() {
           })}
         </div>
 
-        {CATEGORIES.filter((c) => selectedCategory === "all" || selectedCategory === c).map((cat) => {
-          const items = TOOLS.filter((t) => t.category === cat);
-          if (!items.length) return null;
-          return (
-            <div key={cat} className="mt-10 first:mt-0">
-              <div className="mb-4 flex items-baseline justify-between">
-                <h2 className="text-xl font-bold tracking-tight md:text-2xl">
-                  {CATEGORY_LABEL[cat]}
-                </h2>
-                <span className="text-xs text-muted-foreground">{items.length} tools</span>
+        {CATEGORIES.filter((c) => selectedCategory === "all" || selectedCategory === c).map(
+          (cat) => {
+            const items = TOOLS.filter((t) => t.category === cat);
+            if (!items.length) return null;
+            return (
+              <div key={cat} className="mt-10 first:mt-0">
+                <div className="mb-4 flex items-baseline justify-between">
+                  <h2 className="text-xl font-bold tracking-tight md:text-2xl">
+                    {CATEGORY_LABEL[cat]}
+                  </h2>
+                  <span className="text-xs text-muted-foreground">{items.length} tools</span>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {items.map((t) => (
+                    <ToolCard key={t.slug} tool={t} />
+                  ))}
+                </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {items.map((t) => (
-                  <ToolCard key={t.slug} tool={t} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
+            );
+          },
+        )}
       </section>
 
       {/* WHY */}
@@ -292,4 +304,3 @@ function QuickTag({ to, label }: { to: any; label: string }) {
     </Link>
   );
 }
-

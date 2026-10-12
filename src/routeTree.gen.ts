@@ -16,6 +16,7 @@ import { Route as UnlockPdfRouteImport } from './routes/unlock-pdf'
 import { Route as TentangRouteImport } from './routes/tentang'
 import { Route as SplitPdfRouteImport } from './routes/split-pdf'
 import { Route as SignPdfRouteImport } from './routes/sign-pdf'
+import { Route as ShortenUrlRouteImport } from './routes/shorten-url'
 import { Route as RotatePdfRouteImport } from './routes/rotate-pdf'
 import { Route as RepairPdfRouteImport } from './routes/repair-pdf'
 import { Route as RemoveBackgroundRouteImport } from './routes/remove-background'
@@ -68,6 +69,11 @@ const SplitPdfRoute = SplitPdfRouteImport.update({
 const SignPdfRoute = SignPdfRouteImport.update({
   id: '/sign-pdf',
   path: '/sign-pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShortenUrlRoute = ShortenUrlRouteImport.update({
+  id: '/shorten-url',
+  path: '/shorten-url',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RotatePdfRoute = RotatePdfRouteImport.update({
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/remove-background': typeof RemoveBackgroundRoute
   '/repair-pdf': typeof RepairPdfRoute
   '/rotate-pdf': typeof RotatePdfRoute
+  '/shorten-url': typeof ShortenUrlRoute
   '/sign-pdf': typeof SignPdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/remove-background': typeof RemoveBackgroundRoute
   '/repair-pdf': typeof RepairPdfRoute
   '/rotate-pdf': typeof RotatePdfRoute
+  '/shorten-url': typeof ShortenUrlRoute
   '/sign-pdf': typeof SignPdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -235,6 +243,7 @@ export interface FileRoutesById {
   '/remove-background': typeof RemoveBackgroundRoute
   '/repair-pdf': typeof RepairPdfRoute
   '/rotate-pdf': typeof RotatePdfRoute
+  '/shorten-url': typeof ShortenUrlRoute
   '/sign-pdf': typeof SignPdfRoute
   '/split-pdf': typeof SplitPdfRoute
   '/tentang': typeof TentangRoute
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/remove-background'
     | '/repair-pdf'
     | '/rotate-pdf'
+    | '/shorten-url'
     | '/sign-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -291,6 +301,7 @@ export interface FileRouteTypes {
     | '/remove-background'
     | '/repair-pdf'
     | '/rotate-pdf'
+    | '/shorten-url'
     | '/sign-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/remove-background'
     | '/repair-pdf'
     | '/rotate-pdf'
+    | '/shorten-url'
     | '/sign-pdf'
     | '/split-pdf'
     | '/tentang'
@@ -346,6 +358,7 @@ export interface RootRouteChildren {
   RemoveBackgroundRoute: typeof RemoveBackgroundRoute
   RepairPdfRoute: typeof RepairPdfRoute
   RotatePdfRoute: typeof RotatePdfRoute
+  ShortenUrlRoute: typeof ShortenUrlRoute
   SignPdfRoute: typeof SignPdfRoute
   SplitPdfRoute: typeof SplitPdfRoute
   TentangRoute: typeof TentangRoute
@@ -404,6 +417,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-pdf'
       fullPath: '/sign-pdf'
       preLoaderRoute: typeof SignPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shorten-url': {
+      id: '/shorten-url'
+      path: '/shorten-url'
+      fullPath: '/shorten-url'
+      preLoaderRoute: typeof ShortenUrlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rotate-pdf': {
@@ -554,6 +574,7 @@ const rootRouteChildren: RootRouteChildren = {
   RemoveBackgroundRoute: RemoveBackgroundRoute,
   RepairPdfRoute: RepairPdfRoute,
   RotatePdfRoute: RotatePdfRoute,
+  ShortenUrlRoute: ShortenUrlRoute,
   SignPdfRoute: SignPdfRoute,
   SplitPdfRoute: SplitPdfRoute,
   TentangRoute: TentangRoute,

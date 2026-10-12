@@ -22,6 +22,7 @@ import {
   Wrench,
   FileDigit,
   Video,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ export type ToolDef = {
   description: string;
   category: ToolCategory;
   icon: LucideIcon;
+  badge?: string;
   to:
     | "/image-to-pdf"
     | "/pdf-to-image"
@@ -57,7 +59,8 @@ export type ToolDef = {
     | "/sign-pdf"
     | "/extract-pages"
     | "/pdf-to-markdown"
-    | "/repair-pdf";
+    | "/repair-pdf"
+    | "/shorten-url";
 };
 
 export const CATEGORY_LABEL: Record<ToolCategory, string> = {
@@ -136,7 +139,8 @@ export const TOOLS: ToolDef[] = [
     slug: "convert-image",
     title: "Konversi Gambar",
     short: "JPG ↔ PNG ↔ WebP",
-    description: "Ubah format gambar antara JPG, PNG, dan WebP secara instan tanpa menurunkan kualitas.",
+    description:
+      "Ubah format gambar antara JPG, PNG, dan WebP secara instan tanpa menurunkan kualitas.",
     category: "convert",
     icon: RefreshCw,
     to: "/convert-image",
@@ -145,7 +149,8 @@ export const TOOLS: ToolDef[] = [
     slug: "heic-to-jpg",
     title: "HEIC ke JPG",
     short: "HEIC → JPG / PNG",
-    description: "Konversi foto format HEIC/HEIF dari perangkat Apple menjadi JPG atau PNG secara instan.",
+    description:
+      "Konversi foto format HEIC/HEIF dari perangkat Apple menjadi JPG atau PNG secara instan.",
     category: "convert",
     icon: ImageIcon,
     to: "/heic-to-jpg",
@@ -163,7 +168,8 @@ export const TOOLS: ToolDef[] = [
     slug: "split-pdf",
     title: "Pisah PDF",
     short: "Pisah berdasarkan halaman",
-    description: "Pisah PDF berdasarkan rentang halaman atau ekstrak setiap halaman jadi file sendiri.",
+    description:
+      "Pisah PDF berdasarkan rentang halaman atau ekstrak setiap halaman jadi file sendiri.",
     category: "organize",
     icon: Scissors,
     to: "/split-pdf",
@@ -172,7 +178,8 @@ export const TOOLS: ToolDef[] = [
     slug: "extract-pages",
     title: "Ekstrak Halaman PDF",
     short: "Pilih & ambil halaman",
-    description: "Pilih halaman-halaman tertentu dari dokumen PDF untuk diekstrak menjadi PDF baru.",
+    description:
+      "Pilih halaman-halaman tertentu dari dokumen PDF untuk diekstrak menjadi PDF baru.",
     category: "organize",
     icon: FileDigit,
     to: "/extract-pages",
@@ -190,7 +197,8 @@ export const TOOLS: ToolDef[] = [
     slug: "organize-pdf",
     title: "Susun & Edit PDF",
     short: "Geser, hapus & tambah halaman",
-    description: "Susun ulang urutan halaman PDF, hapus yang tidak terpakai, atau tambahkan halaman baru.",
+    description:
+      "Susun ulang urutan halaman PDF, hapus yang tidak terpakai, atau tambahkan halaman baru.",
     category: "organize",
     icon: Layers,
     to: "/organize-pdf",
@@ -271,7 +279,8 @@ export const TOOLS: ToolDef[] = [
     slug: "upscale-image",
     title: "Perbesar Resolusi Gambar",
     short: "Upscale HD / 4K",
-    description: "Tingkatkan resolusi gambar Anda hingga 4x lipat menggunakan filter penajaman Lanczos.",
+    description:
+      "Tingkatkan resolusi gambar Anda hingga 4x lipat menggunakan filter penajaman Lanczos.",
     category: "optimize",
     icon: Sparkles,
     to: "/upscale-image",
@@ -289,7 +298,8 @@ export const TOOLS: ToolDef[] = [
     slug: "video-downloader",
     title: "Pengunduh Video Sosial",
     short: "YouTube, Instagram, TikTok",
-    description: "Unduh video HD tanpa watermark dari YouTube, Instagram Reels, dan TikTok secara langsung.",
+    description:
+      "Unduh video HD tanpa watermark dari YouTube, Instagram Reels, dan TikTok secara langsung.",
     category: "convert",
     icon: Download,
     to: "/video-downloader",
@@ -298,10 +308,21 @@ export const TOOLS: ToolDef[] = [
     slug: "compress-video",
     title: "Kompres Video",
     short: "MP4, WebM, MOV",
-    description: "Perkecil ukuran file video secara langsung di browser tanpa upload ke server. Hasil tajam & hemat kuota.",
+    description:
+      "Perkecil ukuran file video secara langsung di browser tanpa upload ke server. Hasil tajam & hemat kuota.",
     category: "optimize",
     icon: Video,
     to: "/compress-video",
   },
+  {
+    slug: "shorten-url",
+    title: "Persingkat Link URL",
+    short: "Perpendek link & buat QR",
+    description:
+      "Persingkat tautan web panjang menjadi link pendek yang rapi, buat QR Code gratis, dan bagikan dengan mudah.",
+    category: "optimize",
+    icon: Link2,
+    badge: "Baru",
+    to: "/shorten-url",
+  },
 ];
-
