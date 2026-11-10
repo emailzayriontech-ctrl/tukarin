@@ -253,7 +253,7 @@ function Page() {
             {/* QUALITY SLIDER FOR WEBP / JPG */}
             {targetFormat !== "image/png" && (
               <div className="border-t border-border/60 pt-4 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
                     Kualitas Kompresi:{" "}
@@ -261,7 +261,29 @@ function Page() {
                       {Math.round(quality * 100)}%
                     </span>
                   </label>
-                  <div className="flex gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setQuality(0.2)}
+                      className={`cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition ${
+                        quality === 0.2
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted hover:bg-accent text-muted-foreground"
+                      }`}
+                    >
+                      20% (&lt; 100KB)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuality(0.5)}
+                      className={`cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition ${
+                        quality === 0.5
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted hover:bg-accent text-muted-foreground"
+                      }`}
+                    >
+                      50% (Sangat Hemat)
+                    </button>
                     <button
                       type="button"
                       onClick={() => setQuality(0.7)}
@@ -271,7 +293,7 @@ function Page() {
                           : "bg-muted hover:bg-accent text-muted-foreground"
                       }`}
                     >
-                      70% (Ekstra Hemat)
+                      70% (Hemat)
                     </button>
                     <button
                       type="button"
@@ -300,7 +322,7 @@ function Page() {
 
                 <input
                   type="range"
-                  min={0.2}
+                  min={0.05}
                   max={1.0}
                   step={0.05}
                   value={quality}
@@ -308,11 +330,11 @@ function Page() {
                   className="w-full accent-primary cursor-pointer"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  {quality >= 0.85
-                    ? "Kualitas hampir identik dengan aslinya dengan kompresi sedang (~40-60% pengurangan ukuran)."
-                    : quality >= 0.75
-                      ? "Standar emas WebP: Hasil sangat tajam di layar dengan penghematan ukuran fantastis (~70-85%)."
-                      : "Kompresi agresif: Ukuran file menjadi sangat kecil, sangat cocok untuk toko online berkapasitas besar."}
+                  {quality <= 0.3
+                    ? "⚡ Kompresi ekstra agresif (< 100KB): Ukuran file menyusut drastis, sangat cocok untuk website cepat, katalog produk, dan toko online."
+                    : quality >= 0.85
+                      ? "Kualitas hampir identik dengan aslinya dengan kompresi sedang (~40-60% pengurangan ukuran)."
+                      : "Standar emas WebP: Hasil sangat tajam di layar dengan penghematan ukuran fantastis (~70-85%)."}
                 </p>
               </div>
             )}
@@ -324,7 +346,7 @@ function Page() {
                   Resolusi Maksimal (Resize Otomatis)
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
-                  Batas dimensi terpanjang tanpa mengubah rasio aspek gambar.
+                  Batas dimensi terpanjang. Dilengkapi proteksi anti-bloat agar ukuran tidak pernah membengkak.
                 </div>
               </div>
               <select
@@ -332,19 +354,20 @@ function Page() {
                 onChange={(e) => setMaxDim(parseInt(e.target.value, 10))}
                 className="rounded-xl border border-input bg-background px-3 py-1.5 text-xs font-medium shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value={0}>Resolusi Asli (Tanpa Resize)</option>
-                <option value={1920}>Maks 1920px (Full HD - Standar Web)</option>
+                <option value={0}>Resolusi Asli (Auto-Scale jika ukuran membengkak)</option>
                 <option value={2560}>Maks 2560px (2K QHD - Layar Tajam)</option>
+                <option value={1920}>Maks 1920px (Full HD - Standar Web)</option>
                 <option value={1280}>Maks 1280px (HD - Toko Online / Mobile)</option>
-                <option value={800}>Maks 800px (Thumbnail / Blog)</option>
+                <option value={800}>Maks 800px (Thumbnail / Hemat Ekstrem)</option>
+                <option value={500}>Maks 500px (Sangat Kecil &lt; 100KB)</option>
               </select>
             </div>
 
-            {/* NAME PRESERVATION ASSURANCE */}
+            {/* NAME PRESERVATION & ANTI-BLOAT ASSURANCE */}
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300">
               <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>
-                <strong>Nama File Asli Dipertahankan:</strong> Setiap file hasil kompresi akan menggunakan nama asli yang sama persis (misal:{" "}
+                <strong>Jaminan Anti-Bloat &amp; Nama Asli:</strong> Ukuran file dijamin selalu mengecil (tidak akan pernah membengkak) dan nama asli file dipertahankan (misal:{" "}
                 <span className="font-mono font-medium">nama-foto.{targetFormat === "image/webp" ? "webp" : targetFormat === "image/jpeg" ? "jpg" : "png"}</span>
                 ).
               </span>
@@ -543,9 +566,13 @@ function Page() {
                         <span className="font-bold text-primary">
                           {formatBytes(r.resultBlob?.size ?? 0)}
                         </span>
-                        {saving > 0 && (
+                        {saving > 0 ? (
                           <span className="rounded bg-emerald-500/10 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                             -{saving}%
+                          </span>
+                        ) : (
+                          <span className="rounded bg-blue-500/10 px-1.5 py-0.2 text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                            Optimal
                           </span>
                         )}
                       </div>

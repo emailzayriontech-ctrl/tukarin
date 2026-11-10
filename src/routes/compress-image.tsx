@@ -155,27 +155,100 @@ function Page() {
 
           <div className="grid gap-4 rounded-2xl border border-border bg-card p-5 md:grid-cols-3">
             <Field label={`Kualitas (${Math.round(quality * 100)}%)`}>
-              <input
-                type="range"
-                min={0.1}
-                max={1}
-                step={0.05}
-                value={quality}
-                onChange={(e) => setQuality(parseFloat(e.target.value))}
-                className="w-full"
-              />
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min={0.05}
+                  max={1}
+                  step={0.05}
+                  value={quality}
+                  onChange={(e) => setQuality(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setQuality(0.15)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition cursor-pointer ${
+                      quality === 0.15 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    15% (&lt;100KB)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuality(0.4)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition cursor-pointer ${
+                      quality === 0.4 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    40%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuality(0.7)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition cursor-pointer ${
+                      quality === 0.7 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    70%
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuality(0.85)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition cursor-pointer ${
+                      quality === 0.85 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    85%
+                  </button>
+                </div>
+              </div>
             </Field>
+
             <Field label={`Dimensi maks (${maxDim}px)`}>
-              <input
-                type="range"
-                min={500}
-                max={4000}
-                step={100}
-                value={maxDim}
-                onChange={(e) => setMaxDim(parseInt(e.target.value, 10))}
-                className="w-full"
-              />
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min={300}
+                  max={4000}
+                  step={50}
+                  value={maxDim}
+                  onChange={(e) => setMaxDim(parseInt(e.target.value, 10))}
+                  className="w-full"
+                />
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setMaxDim(500)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition cursor-pointer ${
+                      maxDim === 500 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    500px (&lt;100KB)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMaxDim(1080)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition cursor-pointer ${
+                      maxDim === 1080 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    1080px
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMaxDim(1920)}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition cursor-pointer ${
+                      maxDim === 1920 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    1920px
+                  </button>
+                </div>
+              </div>
             </Field>
+
             <Field label="Format Output">
               <select
                 value={outputFormat}
@@ -232,15 +305,15 @@ function Page() {
             )}
           </div>
 
-          {/* NAME PRESERVATION BANNER */}
+          {/* NAME PRESERVATION & ANTI-BLOAT BANNER */}
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300">
             <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <span>
-              <strong>Nama File Asli Dipertahankan:</strong> Setiap gambar yang dikompres tetap mempertahankan nama aslinya (misal:{" "}
+              <strong>Jaminan Anti-Bloat &amp; Nama Asli:</strong> Hasil kompresi selalu diperkecil dan dijamin tidak akan pernah membengkak (selalu lebih kecil dari aslinya), serta mempertahankan nama asli (misal:{" "}
               <code className="font-mono font-medium">
                 foto.{outputFormat === "image/webp" ? "webp" : outputFormat === "image/jpeg" ? "jpg" : outputFormat === "image/png" ? "png" : "jpg"}
               </code>
-              ) tanpa ada tambahan prefix atau kode acak.
+              ).
             </span>
           </div>
 
